@@ -1,4 +1,4 @@
-# BloodConnect
+# BloodNet
 
 Accessing blood during emergencies is often chaotic and inefficient, relying on unverified social media posts and word-of-mouth. There is no centralized system to quickly connect eligible donors with nearby, verified requests. This leads to delays, missed opportunities, and privacy concerns—highlighting the urgent need for a secure, location-based blood donation platform.
 
