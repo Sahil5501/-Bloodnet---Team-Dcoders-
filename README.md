@@ -11,6 +11,6 @@ An application that connects verified donors to nearby urgent blood requests wit
 - [Hitesh Naik](https://github.com/Rookie-sudo-bot)
 - [Shivank Prabhudessai](https://GitHub.com/shivankxd)
 - [Sairajat Upadhyay](https://github.com/sairajatupadhyaya-maker)
-- [Wafiq Shaikh](https://github.com/member3)
+- [Wafiq Shaikh](https://github.com/Wafiq-Xec)
 ## Tech Stack
 TBD
