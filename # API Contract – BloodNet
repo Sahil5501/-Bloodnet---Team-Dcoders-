@@ -1,0 +1,238 @@
+API Contract – Blood Donation Platform
+Group Name: [Replace with your group name]
+Group Members:
+
+Sahil Terwadkar (Team Lead)
+Sweekar Lolayekar (Team Member)
+Hitesh Naik(Team Member)
+Shivank Prabhudessai(Team Member)
+Wafiq Shaikh(Team Member)
+Sairajat Upadhyaya(Team Member)
+
+-Overview
+This document defines the agreed-upon contract between the frontend and backend for the Blood Donation Platform.
+It details all available API endpoints, request/response formats, and expected status codes.
+
+-Core Application Features
+Our application solves the problem of slow and unverified blood donor connections by providing:
+1)User Authentication & Profile Management – Register, log in, and manage donor/requester profiles.
+1)Blood Request Management – Create, view, and manage urgent blood donation requests.
+3)Donor Matching – Match nearby eligible donors to urgent requests.
+4)Request Status Updates – Mark requests as fulfilled or cancelled.
+
+-Data Models
+-User Model
+
+json
+{
+  "id": "uuid",
+  "name": "string",
+  "email": "string",
+  "phone": "string",
+  "password": "string (hashed)",
+  "blood_type": "string",
+  "location": { "latitude": "number", "longitude": "number" },
+  "is_donor": "boolean",
+  "availability": "boolean",
+  "created_at": "timestamp"
+}
+BloodRequest Model
+
+json
+{
+  "id": "uuid",
+  "patient_name": "string",
+  "blood_type": "string",
+  "units_required": "number",
+  "hospital_name": "string",
+  "hospital_address": "string",
+  "location": { "latitude": "number", "longitude": "number" },
+  "contact_number": "string",
+  "status": "pending/fulfilled/cancelled",
+  "requested_by": "user_id",
+  "verified": "boolean",
+  "created_at": "timestamp"
+}
+API Endpoints
+1. User Authentication & Profile Management
+1.1 Register a New User
+Method: POST
+
+Endpoint: /api/users/register
+
+Description: Creates a new account for a donor or requester.
+
+Request Body:
+
+json
+{
+  "name": "string",
+  "email": "string",
+  "phone": "string",
+  "password": "string",
+  "blood_type": "string",
+  "is_donor": true,
+  "latitude": 28.6139,
+  "longitude": 77.2090
+}
+Success Response (201 Created):
+
+json
+{
+  "id": "uuid",
+  "name": "string",
+  "email": "string",
+  "is_donor": true,
+  "blood_type": "A+",
+  "location": { "latitude": 28.6139, "longitude": 77.2090 },
+  "created_at": "timestamp"
+}
+Error Response (400 Bad Request):
+
+json
+{ "error": "Email already exists" }
+1.2 Login User
+Method: POST
+
+Endpoint: /api/users/login
+
+Description: Authenticates a user and returns a token.
+
+Request Body:
+
+json
+{ "email": "string", "password": "string" }
+Success Response (200 OK):
+
+json
+{ "token": "jwt_token", "user_id": "string" }
+Error Response (401 Unauthorized):
+
+json
+{ "error": "Invalid credentials" }
+2. Blood Requests
+2.1 Create a Blood Request
+Method: POST
+
+Endpoint: /api/requests
+
+Description: Creates a verified or pending blood request.
+
+Request Body:
+
+json
+{
+  "patient_name": "string",
+  "blood_type": "O-",
+  "units_required": 2,
+  "hospital_name": "string",
+  "hospital_address": "string",
+  "latitude": 28.6139,
+  "longitude": 77.2090,
+  "contact_number": "string"
+}
+Success Response (201 Created):
+
+json
+{
+  "id": "uuid",
+  "status": "pending",
+  "verified": false,
+  "created_at": "timestamp"
+}
+Error Response (400 Bad Request):
+
+json
+{ "error": "Missing required fields" }
+2.2 Get All Nearby Requests
+Method: GET
+
+Endpoint: /api/requests?latitude=:lat&longitude=:lng&radius=10
+
+Description: Retrieves active requests within a radius.
+
+Success Response (200 OK):
+
+json
+[
+  {
+    "id": "uuid",
+    "patient_name": "string",
+    "blood_type": "O-",
+    "hospital_name": "string",
+    "location": { "latitude": 28.61, "longitude": 77.20 },
+    "status": "pending",
+    "verified": true
+  }
+]
+Error Response (404 Not Found):
+
+json
+{ "error": "No requests found nearby" }
+2.3 Get Request by ID
+Method: GET
+
+Endpoint: /api/requests/:id
+
+Success Response (200 OK):
+
+json
+{
+  "id": "uuid",
+  "patient_name": "string",
+  "blood_type": "O-",
+  "hospital_name": "string",
+  "hospital_address": "string",
+  "location": { "latitude": 28.6139, "longitude": 77.2090 },
+  "contact_number": "string",
+  "status": "pending",
+  "verified": true
+}
+Error Response (404 Not Found):
+
+json
+{ "error": "Request not found" }
+3. Donor Matching
+3.1 Find Matching Donors
+Method: GET
+
+Endpoint: /api/donors/match?blood_type=O-&latitude=28.6&longitude=77.2&radius=10
+
+Description: Retrieves matching donors based on criteria.
+
+Success Response (200 OK):
+
+json
+[
+  {
+    "id": "uuid",
+    "name": "string",
+    "blood_type": "O-",
+    "phone": "string",
+    "location": { "latitude": 28.61, "longitude": 77.20 }
+  }
+]
+Error Response (404 Not Found):
+
+json
+{ "error": "No matching donors found" }
+4. Request Status Updates
+4.1 Update Request Status
+Method: PATCH
+
+Endpoint: /api/requests/:id/status
+
+Description: Marks a request as fulfilled or cancelled.
+
+Request Body:
+
+json
+{ "status": "fulfilled" }
+Success Response (200 OK):
+
+json
+{ "message": "Status updated successfully" }
+Error Response (400 Bad Request):
+
+json
+{ "error": "Invalid status" }
