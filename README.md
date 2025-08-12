@@ -7,7 +7,7 @@ An application that connects verified donors to nearby urgent blood requests wit
 
 ## Team Members
 - [Sahil Terwadkar](https://github.com/Sahil5501)
-- [Sweekar Lolayekar](https://github.com/member2)
+- [Sweekar Lolayekar](https://github.com/sweekar05)
 - [Hitesh Naik](https://github.com/Rookie-sudo-bot)
 - [Shivank Prabhudessai](https://GitHub.com/shivankxd)
 - [Sairajat Upadhyaya](https://github.com/sairajatupadhyaya-maker)
