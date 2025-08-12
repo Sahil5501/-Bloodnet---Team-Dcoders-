@@ -12,5 +12,8 @@ An application that connects verified donors to nearby urgent blood requests wit
 - [Shivank Prabhudessai](https://GitHub.com/shivankxd)
 - [Sairajat Upadhyaya](https://github.com/sairajatupadhyaya-maker)
 - [Wafiq Shaikh](https://github.com/Wafiq-Xec)
+
 ## Tech Stack
-TBD
+-Front-End : React.js 
+-Backend: node.js
+-Database: MongoDB
