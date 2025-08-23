@@ -408,16 +408,4 @@ export default function App() {
 }
 // This is sahil Terwadkar
 
-return (
-    <>
-      <AppStyles />
-      <div className="app-wrapper">
-        {user && <Navbar setPage={setPage} handleLogout={handleLogout} />}
-        <main>
-          {renderPage()}
-        </main>
-        {isModalOpen && <Modal onConfirm={handleDonate} onCancel={handleCloseModal} isLoading={isLoading} />}
-        <Notification message={notification.message} type={notification.type} />
-      </div>
-    </>
-  );
+
