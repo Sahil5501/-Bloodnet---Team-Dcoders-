@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import './App.css'; 
-
+import './App.css';
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "firebase/app";
 import { 
@@ -22,15 +21,24 @@ import {
     orderBy
 } from "firebase/firestore";
 
+// --- STYLES ---
+// Styles are injected directly to avoid issues in this environment.
+const AppStyles = () => (
+  <style>{`
+    
+      
+  `}</style>
+);
+
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
-  apiKey: "AIzaSyAvsNQxfSO-f_CveCtB6NwRPI6HJ_nFgwU",
-  authDomain: "bloodnet-48b07.firebaseapp.com",
-  projectId: "bloodnet-48b07",
-  storageBucket: "bloodnet-48b07.appspot.com",
-  messagingSenderId: "491047752084",
-  appId: "1:491047752084:web:0d75b02133df4cac6abf81",
-  measurementId: "G-95ZE4E8REG"
+    apiKey: "AIzaSyAvsNQxfSO-f_CveCtB6NwRPI6HJ_nFgwU",
+    authDomain: "bloodnet-48b07.firebaseapp.com",
+    projectId: "bloodnet-48b07",
+    storageBucket: "bloodnet-48b07.appspot.com",
+    messagingSenderId: "491047752084",
+    appId: "1:491047752084:web:0d75b02133df4cac6abf81",
+    measurementId: "G-95ZE4E8REG"
 };
 
 // --- INITIALIZE FIREBASE ---
@@ -95,10 +103,16 @@ const RequestCard = ({ request, handleOpenModal, handleUndo }) => {
             <div className="card-content">
                 <div className="card-header">
                     <div className="blood-type-icon">{request.bloodType}</div>
-                    <div className="header-text"><h3>{request.hospital}</h3><p>For: {request.patientName}</p></div>
-                    <span className={`urgency-badge ${urgencyClass}`}>{request.urgency} Urgency</span>
+                    <div className="header-text">
+                        <h3>{request.hospital}</h3>
+                        <p>For: {request.patientName}</p>
+                    </div>
+                    <span className={`urgency-badge ${urgencyClass}`}>{request.urgency}</span>
                 </div>
-                <div className="card-details"><p>Units Required: <span>{request.units}</span></p></div>
+                <div className="card-details">
+                    <p>Units Required:</p>
+                    <span>{request.units}</span>
+                </div>
                 <div className="card-actions">
                     <button className={`button ${isDonated ? 'button-donated' : 'button-primary'}`} onClick={() => !isDonated && handleOpenModal(request)} disabled={isDonated}>
                         {isDonated ? 'Donation Confirmed!' : 'I can donate'}
@@ -115,18 +129,52 @@ const RequestCard = ({ request, handleOpenModal, handleUndo }) => {
 
 const DashboardPage = ({ requests, handleOpenModal, handleUndo }) => {
   const [bloodTypeFilter, setBloodTypeFilter] = useState('All');
+  const [urgencyFilter, setUrgencyFilter] = useState('All'); // <-- NEW: Urgency filter state
+  
   const bloodTypes = ['All', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
+  const urgencies = ['All', 'High', 'Medium', 'Low']; // <-- NEW: Urgency options
+
+  // NEW: Combined filtering logic
+  const filteredRequests = requests.filter(request => {
+      const bloodTypeMatch = bloodTypeFilter === 'All' || request.bloodType === bloodTypeFilter;
+      const urgencyMatch = urgencyFilter === 'All' || request.urgency === urgencyFilter;
+      return bloodTypeMatch && urgencyMatch;
+  });
+
   return (
     <div className="page-container">
-      <header className="page-header"><h1>Active Requests</h1><p>Find verified, nearby blood requests and save a life.</p></header>
+      <header className="page-header">
+        <h1>Active Requests</h1>
+        <p>Find verified, nearby blood requests and save a life.</p>
+      </header>
+      
       <div className="filter-section">
         <h2>Filter by Blood Type</h2>
         <div className="filter-buttons">
-          {bloodTypes.map(type => (<button key={type} onClick={() => setBloodTypeFilter(type)} className={`filter-button ${bloodTypeFilter === type ? 'active' : ''}`}>{type}</button>))}
+          {bloodTypes.map(type => (
+            <button key={type} onClick={() => setBloodTypeFilter(type)} className={`filter-button ${bloodTypeFilter === type ? 'active' : ''}`}>
+              {type}
+            </button>
+          ))}
         </div>
       </div>
+
+      {/* --- NEW: Urgency Filter Section --- */}
+      <div className="filter-section">
+        <h2>Filter by Urgency</h2>
+        <div className="filter-buttons">
+          {urgencies.map(level => (
+            <button key={level} onClick={() => setUrgencyFilter(level)} className={`filter-button ${urgencyFilter === level ? 'active' : ''}`}>
+              {level}
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="requests-grid">
-        {requests.map(request => <RequestCard key={request.id} request={request} handleOpenModal={handleOpenModal} handleUndo={handleUndo} />)}
+        {filteredRequests.map(request => (
+          <RequestCard key={request.id} request={request} handleOpenModal={handleOpenModal} handleUndo={handleUndo} />
+        ))}
       </div>
     </div>
   );
@@ -159,19 +207,40 @@ const CreateRequestPage = ({ setPage, showNotification }) => {
   };
   return (
     <div className="page-container form-container">
-      <h1 className="page-header">Create a Blood Request</h1>
-      <form onSubmit={handleSubmit} className="form-card">
-        <div className="form-group"><label htmlFor="patientName">Patient's Name</label><input type="text" id="patientName" name="patientName" required /></div>
-        <div className="form-group"><label htmlFor="hospital">Hospital/Clinic Name</label><input type="text" id="hospital" name="hospital" required /></div>
-        <div className="form-row">
-          <div className="form-group"><label htmlFor="bloodType">Blood Type</label><select id="bloodType" name="bloodType" required><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option></select></div>
-          <div className="form-group"><label htmlFor="units">Units Required</label><input type="number" id="units" name="units" min="1" required /></div>
-        </div>
-        <div className="form-group"><label htmlFor="urgency">Urgency</label><select id="urgency" name="urgency" required><option>High</option><option>Medium</option><option>Low</option></select></div>
-        <button type="submit" className="button button-primary button-full" disabled={isLoading}>
-            {isLoading ? <div className="spinner"></div> : 'Submit Request'}
-        </button>
-      </form>
+        <header className="page-header">
+            <h1>Create a Blood Request</h1>
+        </header>
+        <form onSubmit={handleSubmit} className="form-card">
+            <div className="form-group">
+                <label htmlFor="patientName">Patient's Name</label>
+                <input type="text" id="patientName" name="patientName" required />
+            </div>
+            <div className="form-group">
+                <label htmlFor="hospital">Hospital/Clinic Name</label>
+                <input type="text" id="hospital" name="hospital" required />
+            </div>
+            <div className="form-row">
+                <div className="form-group">
+                    <label htmlFor="bloodType">Blood Type</label>
+                    <select id="bloodType" name="bloodType" required>
+                        <option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
+                    </select>
+                </div>
+                <div className="form-group">
+                    <label htmlFor="units">Units Required</label>
+                    <input type="number" id="units" name="units" min="1" required />
+                </div>
+            </div>
+            <div className="form-group">
+                <label htmlFor="urgency">Urgency</label>
+                <select id="urgency" name="urgency" required>
+                    <option>High</option><option>Medium</option><option>Low</option>
+                </select>
+            </div>
+            <button type="submit" className="button button-primary button-full" disabled={isLoading}>
+                {isLoading ? <div className="spinner"></div> : 'Submit Request'}
+            </button>
+        </form>
     </div>
   );
 };
@@ -214,8 +283,12 @@ const AuthPage = ({ showNotification }) => {
                     <p>{authMode === 'login' ? 'Sign in to continue' : 'Create an account to become a donor'}</p>
                 </div>
                 <form onSubmit={handleAuth} className="auth-form">
-                    <div className="form-group"><input id="email" name="email" type="email" required placeholder="Your Email Address" /></div>
-                    <div className="form-group"><input id="password" name="password" type="password" required placeholder={authMode === 'login' ? 'Password' : 'Create a Password (min. 6 characters)'} /></div>
+                    <div className="form-group">
+                        <input id="email" name="email" type="email" required placeholder="Your Email Address" />
+                    </div>
+                    <div className="form-group">
+                        <input id="password" name="password" type="password" required placeholder={authMode === 'login' ? 'Password' : 'Create a Password (min. 6 characters)'} />
+                    </div>
                     <button type="submit" className="button button-primary button-full" disabled={isLoading}>
                         {isLoading ? <div className="spinner"></div> : (authMode === 'login' ? 'Sign In' : 'Register')}
                     </button>
@@ -320,14 +393,16 @@ export default function App() {
   };
 
   return (
-    <div className="app-wrapper">
-      {user && <Navbar setPage={setPage} handleLogout={handleLogout} />}
-      <main>
-        {renderPage()}
-      </main>
-      {isModalOpen && <Modal onConfirm={handleDonate} onCancel={handleCloseModal} isLoading={isLoading} />}
-      <Notification message={notification.message} type={notification.type} />
-    </div>
+    <>
+      <AppStyles />
+      <div className="app-wrapper">
+        {user && <Navbar setPage={setPage} handleLogout={handleLogout} />}
+        <main>
+          {renderPage()}
+        </main>
+        {isModalOpen && <Modal onConfirm={handleDonate} onCancel={handleCloseModal} isLoading={isLoading} />}
+        <Notification message={notification.message} type={notification.type} />
+      </div>
+    </>
   );
 }
-
