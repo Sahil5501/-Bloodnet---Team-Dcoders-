@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import './App.css'; // Import the stylesheet
 
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "firebase/app";
@@ -21,211 +22,6 @@ import {
     orderBy
 } from "firebase/firestore";
 
-// --- STYLES ---
-// All styles are included here to prevent import issues.
-const AppStyles = () => (
-  <style>{`
-    /* --- GLOBAL STYLES & VARIABLES --- */
-    :root {
-      --primary-color: #dc2626;
-      --primary-hover: #b91c1c;
-      --background-color: #f9fafb;
-      --card-background: #ffffff;
-      --text-dark: #1f2937;
-      --text-medium: #4b5563;
-      --text-light: #6b7280;
-      --border-color: #e5e7eb;
-      --shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
-      --font-family: 'Inter', sans-serif;
-    }
-
-    body {
-      margin: 0;
-      font-family: var(--font-family);
-      background-color: var(--background-color);
-      color: var(--text-dark);
-    }
-
-    .app-wrapper {
-      min-height: 100vh;
-    }
-
-    /* --- ICONS --- */
-    .icon { height: 1.5rem; width: 1.5rem; }
-    .portal-icon { height: 3rem; width: 3rem; color: var(--primary-color); }
-    .portal-arrow-icon { height: 1.5rem; width: 1.5rem; margin-left: 0.5rem; }
-
-    /* --- BUTTONS --- */
-    .button {
-      padding: 0.5rem 1rem;
-      border-radius: 0.375rem;
-      font-size: 0.875rem;
-      font-weight: 500;
-      border: none;
-      cursor: pointer;
-      transition: background-color 0.3s ease;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .button-primary { background-color: var(--primary-color); color: white; }
-    .button-primary:hover { background-color: var(--primary-hover); }
-    .button-full { width: 100%; padding-top: 0.75rem; padding-bottom: 0.75rem; }
-
-    /* --- NAVBAR --- */
-    .navbar {
-      background-color: var(--card-background);
-      box-shadow: var(--shadow);
-      position: sticky; top: 0; z-index: 10;
-    }
-    .navbar-container {
-      max-width: 80rem; margin: 0 auto; padding: 0 1.5rem;
-      display: flex; align-items: center; justify-content: space-between; height: 4rem;
-    }
-    .navbar-brand { display: flex; align-items: center; color: var(--primary-color); }
-    .brand-name { font-weight: bold; font-size: 1.25rem; margin-left: 0.5rem; }
-    .navbar-links { display: flex; gap: 1rem; }
-    .nav-button {
-      background: none; border: none; color: var(--text-dark); padding: 0.5rem 0.75rem;
-      border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500;
-      cursor: pointer; transition: background-color 0.2s, color 0.2s;
-    }
-    .nav-button:hover { background-color: var(--primary-color); color: white; }
-
-    /* --- PAGE & HEADER --- */
-    .page-container { padding: 2rem; max-width: 80rem; margin: 0 auto; }
-    .page-header { margin-bottom: 1.5rem; }
-    .page-header h1 { font-size: 1.875rem; font-weight: bold; color: var(--text-dark); margin: 0; }
-    .page-header p { color: var(--text-medium); margin-top: 0.25rem; }
-
-    /* --- FILTER SECTION --- */
-    .filter-section { margin-bottom: 1.5rem; }
-    .filter-section h2 { font-size: 1.125rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text-dark); }
-    .filter-buttons { display: flex; flex-wrap: wrap; gap: 0.5rem; }
-    .filter-button {
-      padding: 0.5rem 1rem; font-size: 0.875rem; font-weight: 500;
-      border-radius: 9999px; transition: all 0.2s ease; cursor: pointer;
-      background-color: var(--card-background); color: var(--text-dark); border: 1px solid var(--border-color);
-    }
-    .filter-button:hover { background-color: #f3f4f6; }
-    .filter-button.active {
-      background-color: var(--primary-color); color: white;
-      border-color: var(--primary-color); box-shadow: var(--shadow);
-    }
-
-    /* --- REQUESTS GRID & CARD --- */
-    .requests-grid { display: grid; grid-template-columns: repeat(1, 1fr); gap: 1.5rem; }
-    @media (min-width: 768px) { .requests-grid { grid-template-columns: repeat(2, 1fr); } }
-    @media (min-width: 1024px) { .requests-grid { grid-template-columns: repeat(3, 1fr); } }
-
-    .request-card {
-      background-color: var(--card-background); border-radius: 0.5rem; box-shadow: var(--shadow);
-      overflow: hidden; transition: transform 0.3s ease; border-left: 4px solid;
-    }
-    .request-card:hover { transform: translateY(-4px); }
-    .card-content { padding: 1rem; }
-    .card-header { display: flex; align-items: center; justify-content: space-between; }
-    .blood-type-icon {
-      background-color: var(--primary-color); color: white; font-weight: bold;
-      border-radius: 50%; height: 3rem; width: 3rem; display: flex;
-      align-items: center; justify-content: center; font-size: 1.25rem; flex-shrink: 0;
-    }
-    .header-text { margin-left: 1rem; flex-grow: 1; }
-    .header-text h3 { font-size: 1.125rem; font-weight: bold; margin: 0; }
-    .header-text p { font-size: 0.875rem; color: var(--text-medium); margin: 0; }
-    .urgency-badge { padding: 0.25rem 0.75rem; font-size: 0.75rem; font-weight: 600; border-radius: 9999px; color: white; }
-    .card-details {
-      margin-top: 1rem; margin-bottom: 1rem; display: flex; justify-content: space-between;
-      align-items: center; font-size: 0.875rem; color: var(--text-dark);
-    }
-    .card-details p { margin: 0; }
-    .card-details span { font-weight: 600; color: var(--primary-color); }
-
-    /* Urgency Colors */
-    .urgency-badge.urgency-high { background-color: #ef4444; }
-    .urgency-badge.urgency-medium { background-color: #f59e0b; }
-    .urgency-badge.urgency-low { background-color: #10b981; }
-    .request-card.urgency-high { border-left-color: #ef4444; }
-    .request-card.urgency-medium { border-left-color: #f59e0b; }
-    .request-card.urgency-low { border-left-color: #10b981; }
-
-    /* --- FORM STYLES --- */
-    .form-container { max-width: 42rem; }
-    .form-card {
-      background-color: var(--card-background); padding: 2rem; border-radius: 0.5rem;
-      box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 1.5rem;
-    }
-    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; }
-    .form-group { display: flex; flex-direction: column; }
-    .form-group label { margin-bottom: 0.5rem; font-size: 0.875rem; font-weight: 500; color: var(--text-dark); }
-    .form-group input, .form-group select {
-      padding: 0.75rem; border: 1px solid var(--border-color); border-radius: 0.375rem;
-      box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); font-size: 1rem;
-    }
-    .form-group input:focus, .form-group select:focus {
-      outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 2px rgba(220, 38, 38, 0.3);
-    }
-
-    /* --- AUTH & PORTAL PAGES --- */
-    .auth-container, .portal-container {
-      min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem;
-    }
-    .auth-card, .portal-card {
-      max-width: 28rem; width: 100%; background-color: var(--card-background);
-      padding: 2rem; border-radius: 0.75rem; box-shadow: var(--shadow);
-    }
-    .auth-header, .portal-header { text-align: center; margin-bottom: 1.5rem; }
-    .auth-header h2, .portal-header h1 { font-size: 1.875rem; font-weight: 800; margin: 0; }
-    .auth-header p, .portal-header p { margin-top: 0.5rem; color: var(--text-medium); }
-    .auth-form { display: flex; flex-direction: column; gap: 1.5rem; }
-    .auth-toggle { text-align: center; margin-top: 1.5rem; }
-    .auth-toggle button { background: none; border: none; color: var(--primary-color); font-weight: bold; cursor: pointer; }
-    .portal-actions { display: flex; flex-direction: column; gap: 1rem; }
-    .portal-button {
-      display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.5rem;
-      font-size: 1.1rem; font-weight: 600; border: none; border-radius: 8px;
-      cursor: pointer; transition: all 0.2s ease-in-out; text-align: left;
-    }
-    .portal-button:hover { transform: translateY(-2px); box-shadow: 0 8px 15px rgba(0,0,0,0.1); }
-    .portal-button.donor { background-color: var(--primary-color); color: white; }
-    .portal-button.admin { background-color: #f3f4f6; color: var(--text-dark); }
-    
-    /* --- MODAL STYLES --- */
-    .modal-overlay {
-      position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0, 0, 0, 0.5);
-      display: flex; align-items: center; justify-content: center; z-index: 20;
-    }
-    .modal-content {
-      background-color: var(--card-background); padding: 2rem; border-radius: 0.5rem;
-      box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
-      max-width: 28rem; width: 90%; text-align: center;
-    }
-    .modal-content h2 { font-size: 1.5rem; font-weight: 600; margin-top: 0; }
-    .modal-content p { color: var(--text-medium); margin-bottom: 1.5rem; }
-    .modal-actions { display: flex; gap: 1rem; justify-content: center; }
-
-    /* --- OTHER STYLES --- */
-    .card-actions { display: flex; gap: 0.5rem; margin-top: 1rem; align-items: center; }
-    .button-donated { background-color: #16a34a; color: white; cursor: not-allowed; flex-grow: 1; }
-    .button-undo { background-color: var(--text-light); color: var(--text-dark); padding: 0.5rem 1rem; }
-    .button-undo:hover { background-color: var(--text-medium); color: white; }
-    .spinner {
-      border: 4px solid rgba(255, 255, 255, 0.3); border-radius: 50%;
-      border-top: 4px solid #fff; width: 20px; height: 20px;
-      animation: spin 1s linear infinite; margin: 0 auto;
-    }
-    .auth-container .spinner { border-top-color: var(--primary-color); }
-    .button .spinner { border-top-color: white; }
-    @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    .notification {
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-        padding: 1rem 1.5rem; border-radius: 0.375rem; color: white;
-        box-shadow: var(--shadow); z-index: 1001; background-color: #16a34a;
-    }
-    .notification.error { background-color: var(--primary-color); }
-  `}</style>
-);
-
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
     apiKey: "AIzaSyAvsNQxfSO-f_CveCtB6NwRPI6HJ_nFgwU",
@@ -244,13 +40,23 @@ const db = getFirestore(app);
 
 // --- SHARED ICONS & COMPONENTS ---
 const BloodDropIcon = ({ className = "icon" }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  <svg xmlns="http://www.w.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
   </svg>
 );
 const ArrowRightIcon = ({ className = "portal-arrow-icon" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg xmlns="http://www.w.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
+    </svg>
+);
+const SunIcon = ({ className = "icon" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z" />
+    </svg>
+);
+const MoonIcon = ({ className = "icon" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
     </svg>
 );
 const Notification = ({ message, type = 'success' }) => {
@@ -259,10 +65,18 @@ const Notification = ({ message, type = 'success' }) => {
     return <div className={notificationClass}>{message}</div>;
 };
 
+// --- THEME TOGGLE COMPONENT ---
+const ThemeToggle = ({ theme, toggleTheme }) => (
+    <button onClick={toggleTheme} className="theme-toggle-button" aria-label="Toggle Theme">
+        {theme === 'light' ? <MoonIcon /> : <SunIcon />}
+    </button>
+);
+
+
 // =================================================================================================
 // --- DONOR COMPONENT ---
 // =================================================================================================
-const Donor = () => {
+const Donor = ({ theme, toggleTheme }) => {
     const [page, setPage] = useState('loading');
     const [user, setUser] = useState(null);
     const [requests, setRequests] = useState([]);
@@ -328,7 +142,7 @@ const Donor = () => {
 
     return (
         <div className="app-wrapper">
-            {user && <DonorNavbar handleLogout={handleLogout} />}
+            {user && <DonorNavbar handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />}
             <main>{renderPage()}</main>
             {isModalOpen && <DonorModal onConfirm={handleDonate} onCancel={handleCloseModal} isLoading={isLoading} />}
             <Notification message={notification.message} type={notification.type} />
@@ -337,11 +151,14 @@ const Donor = () => {
 };
 
 // --- Donor Sub-Components ---
-const DonorNavbar = ({ handleLogout }) => (
+const DonorNavbar = ({ handleLogout, theme, toggleTheme }) => (
     <nav className="navbar">
         <div className="navbar-container">
             <div className="navbar-brand"><BloodDropIcon /><span className="brand-name">BloodNet Donor</span></div>
-            <button onClick={handleLogout} className="button button-primary">Logout</button>
+            <div className="navbar-controls">
+                <button onClick={handleLogout} className="button button-primary">Logout</button>
+                <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+            </div>
         </div>
     </nav>
 );
@@ -429,7 +246,7 @@ const DonorDashboard = ({ requests, handleOpenModal, handleUndo }) => {
 // =================================================================================================
 // --- ADMIN COMPONENT ---
 // =================================================================================================
-const Admin = () => {
+const Admin = ({ theme, toggleTheme }) => {
     const [page, setPage] = useState('loading');
     const [user, setUser] = useState(null);
     const [requests, setRequests] = useState([]);
@@ -471,7 +288,7 @@ const Admin = () => {
 
     return (
         <div className="app-wrapper">
-            {user && <AdminNavbar setPage={setPage} handleLogout={handleLogout} />}
+            {user && <AdminNavbar setPage={setPage} handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />}
             <main>{renderPage()}</main>
             <Notification message={notification.message} type={notification.type} />
         </div>
@@ -479,7 +296,7 @@ const Admin = () => {
 };
 
 // --- Admin Sub-Components ---
-const AdminNavbar = ({ setPage, handleLogout }) => (
+const AdminNavbar = ({ setPage, handleLogout, theme, toggleTheme }) => (
     <nav className="navbar">
         <div className="navbar-container">
             <div className="navbar-brand"><BloodDropIcon /><span className="brand-name">BloodNet Admin</span></div>
@@ -487,7 +304,10 @@ const AdminNavbar = ({ setPage, handleLogout }) => (
                 <button onClick={() => setPage('dashboard')} className="nav-button">Dashboard</button>
                 <button onClick={() => setPage('createRequest')} className="nav-button">Create Request</button>
             </div>
-            <button onClick={handleLogout} className="button button-primary">Logout</button>
+            <div className="navbar-controls">
+                <button onClick={handleLogout} className="button button-primary">Logout</button>
+                <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+            </div>
         </div>
     </nav>
 );
@@ -655,13 +475,23 @@ const AuthPage = ({ showNotification, userType }) => {
 // =================================================================================================
 export default function App() {
   const [appMode, setAppMode] = useState('portal'); // 'portal', 'donor', or 'admin'
+  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  };
 
   const renderContent = () => {
     switch (appMode) {
       case 'donor':
-        return <Donor />;
+        return <Donor theme={theme} toggleTheme={toggleTheme} />;
       case 'admin':
-        return <Admin />;
+        return <Admin theme={theme} toggleTheme={toggleTheme} />;
       case 'portal':
       default:
         return (
@@ -690,7 +520,7 @@ export default function App() {
 
   return (
     <>
-      <AppStyles />
+      {/* The AppStyles component is removed, as styles are now in App.css */}
       {renderContent()}
     </>
   );
