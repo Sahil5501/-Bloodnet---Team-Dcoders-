@@ -19,7 +19,8 @@ import {
     updateDoc,
     serverTimestamp,
     query,
-    orderBy
+    orderBy,
+    where
 } from "firebase/firestore";
 
 // --- FIREBASE CONFIGURATION ---
@@ -40,12 +41,12 @@ const db = getFirestore(app);
 
 // --- SHARED ICONS & COMPONENTS ---
 const BloodDropIcon = ({ className = "icon" }) => (
-  <svg xmlns="http://www.w.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
-  </svg>
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 13.5L12 21m0 0l-7.5-7.5M12 21V3" />
+    </svg>
 );
 const ArrowRightIcon = ({ className = "portal-arrow-icon" }) => (
-    <svg xmlns="http://www.w.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M13 7l5 5m0 0l-5 5m5-5H6" />
     </svg>
 );
@@ -59,6 +60,32 @@ const MoonIcon = ({ className = "icon" }) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
     </svg>
 );
+const DashboardIcon = ({ className = "icon" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 10h18M3 14h18m-9-4v8m-7 0h14a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z" />
+    </svg>
+);
+const PlusIcon = ({ className = "icon" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+    </svg>
+);
+const HistoryIcon = ({ className = "icon" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+    </svg>
+);
+const MenuIcon = ({ className = "icon" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+    </svg>
+);
+const CloseIcon = ({ className = "icon" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    </svg>
+);
+
 const Notification = ({ message, type = 'success' }) => {
     if (!message) return null;
     const notificationClass = type === 'error' ? 'notification error' : 'notification';
@@ -71,6 +98,73 @@ const ThemeToggle = ({ theme, toggleTheme }) => (
         {theme === 'light' ? <MoonIcon /> : <SunIcon />}
     </button>
 );
+
+// --- NEW LAYOUT COMPONENT WITH SIDEBAR ---
+const Layout = ({ userType, handleLogout, theme, toggleTheme, setPage, children }) => {
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+
+    const toggleSidebar = () => {
+        setIsSidebarOpen(!isSidebarOpen);
+    };
+
+    const handleNavLinkClick = (pageName) => {
+        setPage(pageName);
+        setIsSidebarOpen(false); // Close sidebar on navigation
+    };
+
+    return (
+        <div className="layout-container">
+            <header className="navbar">
+                <div className="navbar-container">
+                    <div className="navbar-brand">
+                        {/* Hamburger menu button for small screens */}
+                        <button className="sidebar-toggle-button" onClick={toggleSidebar} aria-label="Toggle sidebar">
+                            {isSidebarOpen ? <CloseIcon /> : <MenuIcon />}
+                        </button>
+                        <BloodDropIcon className="blood-icon" />
+                        <span className="brand-name">BloodNet {userType}</span>
+                    </div>
+                    <div className="navbar-controls">
+                        <button onClick={handleLogout} className="button button-primary">Logout</button>
+                        <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+                    </div>
+                </div>
+            </header>
+
+            {/* Sidebar Overlay for mobile */}
+            {isSidebarOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}
+
+            <div className={`main-content-wrapper ${isSidebarOpen ? 'main-content-with-sidebar' : ''}`}>
+                <aside className={`sidebar ${isSidebarOpen ? 'sidebar-open' : ''}`}>
+                    <div className="sidebar-links">
+                        {userType === 'Admin' ? (
+                            <>
+                                <button onClick={() => handleNavLinkClick('dashboard')} className="sidebar-button">
+                                    <DashboardIcon /> Dashboard
+                                </button>
+                                <button onClick={() => handleNavLinkClick('createRequest')} className="sidebar-button">
+                                    <PlusIcon /> Create Request
+                                </button>
+                            </>
+                        ) : (
+                            <>
+                                <button onClick={() => handleNavLinkClick('dashboard')} className="sidebar-button">
+                                    <BloodDropIcon /> Active Requests
+                                </button>
+                                <button onClick={() => handleNavLinkClick('history')} className="sidebar-button">
+                                    <HistoryIcon /> Donation History
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </aside>
+                <main className="main-content">
+                    {children}
+                </main>
+            </div>
+        </div>
+    );
+};
 
 
 // =================================================================================================
@@ -95,7 +189,7 @@ const Donor = ({ theme, toggleTheme }) => {
 
     useEffect(() => {
         if (!user) return;
-        const q = query(collection(db, "requests"), orderBy("createdAt", "desc"));
+        const q = query(collection(db, "requests"), where("status", "==", "Active"), orderBy("createdAt", "desc"));
         const unsubscribe = onSnapshot(q, (querySnapshot) => {
             const requestsData = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setRequests(requestsData);
@@ -117,7 +211,7 @@ const Donor = ({ theme, toggleTheme }) => {
         setIsLoading(true);
         try {
             const requestRef = doc(db, "requests", selectedRequest.id);
-            await updateDoc(requestRef, { status: 'Donated' });
+            await updateDoc(requestRef, { status: 'Donated', donorEmail: user.email });
             showNotification('Success! Donation status updated.');
         } catch (error) {
             showNotification('Error: Could not complete donation.', 'error');
@@ -130,38 +224,32 @@ const Donor = ({ theme, toggleTheme }) => {
 
     const handleUndo = async (requestId) => {
         const requestRef = doc(db, "requests", requestId);
-        await updateDoc(requestRef, { status: 'Active' });
+        await updateDoc(requestRef, { status: 'Active', donorEmail: null });
         showNotification('Donation status reverted.');
     };
 
     const renderPage = () => {
         if (page === 'loading') return <div className="auth-container"><div className="spinner"></div></div>;
-        if (page === 'dashboard') return <DonorDashboard requests={requests} handleOpenModal={handleOpenModal} handleUndo={handleUndo} />;
-        return <AuthPage showNotification={showNotification} userType="Donor" />;
+        if (page === 'auth') return <AuthPage showNotification={showNotification} userType="Donor" />;
+
+        return (
+            <Layout userType="Donor" handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} setPage={setPage}>
+                {page === 'dashboard' && <DonorDashboard requests={requests} handleOpenModal={handleOpenModal} />}
+                {page === 'history' && <DonorHistory requests={requests.filter(r => r.status === 'Donated')} handleUndo={handleUndo} />}
+                {isModalOpen && <DonorModal onConfirm={handleDonate} onCancel={handleCloseModal} isLoading={isLoading} />}
+            </Layout>
+        );
     };
 
     return (
         <div className="app-wrapper">
-            {user && <DonorNavbar handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />}
-            <main>{renderPage()}</main>
-            {isModalOpen && <DonorModal onConfirm={handleDonate} onCancel={handleCloseModal} isLoading={isLoading} />}
+            {renderPage()}
             <Notification message={notification.message} type={notification.type} />
         </div>
     );
 };
 
 // --- Donor Sub-Components ---
-const DonorNavbar = ({ handleLogout, theme, toggleTheme }) => (
-    <nav className="navbar">
-        <div className="navbar-container">
-            <div className="navbar-brand"><BloodDropIcon /><span className="brand-name">BloodNet Donor</span></div>
-            <div className="navbar-controls">
-                <button onClick={handleLogout} className="button button-primary">Logout</button>
-                <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
-            </div>
-        </div>
-    </nav>
-);
 const DonorModal = ({ onConfirm, onCancel, isLoading }) => (
     <div className="modal-overlay">
         <div className="modal-content">
@@ -176,9 +264,8 @@ const DonorModal = ({ onConfirm, onCancel, isLoading }) => (
         </div>
     </div>
 );
-const DonorRequestCard = ({ request, handleOpenModal, handleUndo }) => {
+const DonorRequestCard = ({ request, handleOpenModal }) => {
     const urgencyClass = `urgency-${request.urgency.toLowerCase()}`;
-    const isDonated = request.status === 'Donated';
     return (
         <div className={`request-card ${urgencyClass}`}>
             <div className="card-content">
@@ -195,16 +282,15 @@ const DonorRequestCard = ({ request, handleOpenModal, handleUndo }) => {
                     <span>{request.units}</span>
                 </div>
                 <div className="card-actions">
-                    <button className={`button ${isDonated ? 'button-donated' : 'button-primary'}`} onClick={() => !isDonated && handleOpenModal(request)} disabled={isDonated}>
-                        {isDonated ? 'Donation Confirmed!' : 'I can donate'}
+                    <button className="button button-primary" onClick={() => handleOpenModal(request)}>
+                        I can donate
                     </button>
-                    {isDonated && (<button onClick={() => handleUndo(request.id)} className="button button-undo">Undo</button>)}
                 </div>
             </div>
         </div>
     );
 };
-const DonorDashboard = ({ requests, handleOpenModal, handleUndo }) => {
+const DonorDashboard = ({ requests, handleOpenModal }) => {
     const [bloodTypeFilter, setBloodTypeFilter] = useState('All');
     const [urgencyFilter, setUrgencyFilter] = useState('All');
     const bloodTypes = ['All', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -234,7 +320,7 @@ const DonorDashboard = ({ requests, handleOpenModal, handleUndo }) => {
             </div>
             <div className="requests-grid">
                 {filteredRequests.length > 0 ? (
-                    filteredRequests.map(request => <DonorRequestCard key={request.id} request={request} handleOpenModal={handleOpenModal} handleUndo={handleUndo} />)
+                    filteredRequests.map(request => <DonorRequestCard key={request.id} request={request} handleOpenModal={handleOpenModal} />)
                 ) : (
                     <p>No active requests for the selected filters.</p>
                 )}
@@ -242,6 +328,47 @@ const DonorDashboard = ({ requests, handleOpenModal, handleUndo }) => {
         </div>
     );
 };
+
+// NEW: DONOR HISTORY COMPONENT
+const DonorHistory = ({ requests, handleUndo }) => {
+    return (
+        <div className="page-container">
+            <header className="page-header">
+                <h1>My Donation History</h1>
+                <p>Requests you have confirmed as fulfilled.</p>
+            </header>
+            <div className="requests-grid">
+                {requests.length > 0 ? (
+                    requests.map(request => (
+                        <div key={request.id} className="request-card donated-card">
+                            <div className="card-content">
+                                <div className="card-header">
+                                    <div className="blood-type-icon">{request.bloodType}</div>
+                                    <div className="header-text">
+                                        <h3>{request.hospital}</h3>
+                                        <p>For: {request.patientName}</p>
+                                    </div>
+                                    <span className="urgency-badge">{request.urgency}</span>
+                                </div>
+                                <div className="card-details">
+                                    <p>Units Donated:</p>
+                                    <span>{request.units}</span>
+                                </div>
+                                <div className="card-actions">
+                                    <button className="button button-donated" disabled>Donation Confirmed</button>
+                                    <button onClick={() => handleUndo(request.id)} className="button button-undo">Undo</button>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <p>You have not confirmed any donations yet.</p>
+                )}
+            </div>
+        </div>
+    );
+};
+
 
 // =================================================================================================
 // --- ADMIN COMPONENT ---
@@ -255,6 +382,7 @@ const Admin = ({ theme, toggleTheme }) => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
+            // Set the default page to 'requests' for Admin
             setPage(currentUser ? 'dashboard' : 'auth');
         });
         return () => unsubscribe();
@@ -279,38 +407,65 @@ const Admin = ({ theme, toggleTheme }) => {
 
     const renderPage = () => {
         if (page === 'loading') return <div className="auth-container"><div className="spinner"></div></div>;
-        switch (page) {
-            case 'dashboard': return <AdminDashboard requests={requests} />;
-            case 'createRequest': return <CreateRequestPage setPage={setPage} showNotification={showNotification} />;
-            default: return <AuthPage showNotification={showNotification} userType="Admin" />;
-        }
+        if (page === 'auth') return <AuthPage showNotification={showNotification} userType="Admin" />;
+
+        return (
+            <Layout userType="Admin" handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} setPage={setPage}>
+                {/* Admin dashboard now directly displays all requests */}
+                {page === 'dashboard' && <AdminDashboard requests={requests} />}
+                {page === 'createRequest' && <CreateRequestPage setPage={setPage} showNotification={showNotification} />}
+            </Layout>
+        );
     };
 
     return (
         <div className="app-wrapper">
-            {user && <AdminNavbar setPage={setPage} handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} />}
-            <main>{renderPage()}</main>
+            {renderPage()}
             <Notification message={notification.message} type={notification.type} />
         </div>
     );
 };
 
 // --- Admin Sub-Components ---
-const AdminNavbar = ({ setPage, handleLogout, theme, toggleTheme }) => (
-    <nav className="navbar">
-        <div className="navbar-container">
-            <div className="navbar-brand"><BloodDropIcon /><span className="brand-name">BloodNet Admin</span></div>
-            <div className="navbar-links">
-                <button onClick={() => setPage('dashboard')} className="nav-button">Dashboard</button>
-                <button onClick={() => setPage('createRequest')} className="nav-button">Create Request</button>
+const AdminDashboard = ({ requests }) => {
+    const totalRequests = requests.length;
+    const activeRequests = requests.filter(r => r.status === 'Active').length;
+    const fulfilledRequests = requests.filter(r => r.status === 'Donated').length;
+
+    return (
+        <div className="page-container">
+            <header className="page-header">
+                <h1>Admin Dashboard</h1>
+                <p>A comprehensive overview of all blood requests.</p>
+            </header>
+
+            <div className="metrics-grid">
+                <div className="metric-card">
+                    <h2>Total Requests</h2>
+                    <p className="metric-value">{totalRequests}</p>
+                </div>
+                <div className="metric-card">
+                    <h2>Active Requests</h2>
+                    <p className="metric-value active-value">{activeRequests}</p>
+                </div>
+                <div className="metric-card">
+                    <h2>Fulfilled Requests</h2>
+                    <p className="metric-value fulfilled-value">{fulfilledRequests}</p>
+                </div>
             </div>
-            <div className="navbar-controls">
-                <button onClick={handleLogout} className="button button-primary">Logout</button>
-                <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
+
+            <h2 className="requests-heading">All Requests</h2>
+            <div className="requests-grid">
+                {requests.length > 0 ? (
+                    requests.map(request => <AdminRequestCard key={request.id} request={request} />)
+                ) : (
+                    <p>No requests found.</p>
+                )}
             </div>
         </div>
-    </nav>
-);
+    );
+};
+
 const AdminRequestCard = ({ request }) => {
     const urgencyClass = `urgency-${request.urgency.toLowerCase()}`;
     const isDonated = request.status === 'Donated';
@@ -338,17 +493,6 @@ const AdminRequestCard = ({ request }) => {
         </div>
     );
 };
-const AdminDashboard = ({ requests }) => (
-    <div className="page-container">
-        <header className="page-header">
-            <h1>Admin Dashboard</h1>
-            <p>Monitor all active and fulfilled blood requests.</p>
-        </header>
-        <div className="requests-grid">
-            {requests.map(request => <AdminRequestCard key={request.id} request={request} />)}
-        </div>
-    </div>
-);
 const CreateRequestPage = ({ setPage, showNotification }) => {
     const [isLoading, setIsLoading] = useState(false);
     const handleSubmit = async (e) => {
@@ -474,55 +618,53 @@ const AuthPage = ({ showNotification, userType }) => {
 // --- MAIN APP COMPONENT (PORTAL) ---
 // =================================================================================================
 export default function App() {
-  const [appMode, setAppMode] = useState('portal'); // 'portal', 'donor', or 'admin'
-  const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
+    const [appMode, setAppMode] = useState('portal'); // 'portal', 'donor', or 'admin'
+    const [theme, setTheme] = useState(() => localStorage.getItem('theme') || 'light');
 
-  useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme);
+        localStorage.setItem('theme', theme);
+    }, [theme]);
 
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
-  };
+    const toggleTheme = () => {
+        setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+    };
 
-  const renderContent = () => {
-    switch (appMode) {
-      case 'donor':
-        return <Donor theme={theme} toggleTheme={toggleTheme} />;
-      case 'admin':
-        return <Admin theme={theme} toggleTheme={toggleTheme} />;
-      case 'portal':
-      default:
-        return (
-          <div className="portal-container">
-            <div className="portal-card">
-              <div className="portal-header">
-                <BloodDropIcon className="portal-icon" />
-                <h1>Welcome to BloodNet</h1>
-                <p>Connecting donors with those in need. Please select your role to continue.</p>
-              </div>
-              <div className="portal-actions">
-                <button onClick={() => setAppMode('donor')} className="portal-button donor">
-                  <span>I am a Donor</span>
-                  <ArrowRightIcon />
-                </button>
-                <button onClick={() => setAppMode('admin')} className="portal-button admin">
-                  <span>I am an Admin</span>
-                  <ArrowRightIcon />
-                </button>
-              </div>
-            </div>
-          </div>
-        );
-    }
-  };
+    const renderContent = () => {
+        switch (appMode) {
+            case 'donor':
+                return <Donor theme={theme} toggleTheme={toggleTheme} />;
+            case 'admin':
+                return <Admin theme={theme} toggleTheme={toggleTheme} />;
+            case 'portal':
+            default:
+                return (
+                    <div className="portal-container">
+                        <div className="portal-card">
+                            <div className="portal-header">
+                                <BloodDropIcon className="portal-icon" />
+                                <h1>Welcome to BloodNet</h1>
+                                <p>Connecting donors with those in need. Please select your role to continue.</p>
+                            </div>
+                            <div className="portal-actions">
+                                <button onClick={() => setAppMode('donor')} className="portal-button donor">
+                                    <span>I am a Donor</span>
+                                    <ArrowRightIcon />
+                                </button>
+                                <button onClick={() => setAppMode('admin')} className="portal-button admin">
+                                    <span>I am an Admin</span>
+                                    <ArrowRightIcon />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+        }
+    };
 
-  return (
-    <>
-      {/* The AppStyles component is removed, as styles are now in App.css */}
-      {renderContent()}
-    </>
-  );
-
+    return (
+        <div className="app-wrapper">
+            {renderContent()}
+        </div>
+    );
 }
