@@ -3,17 +3,17 @@ import './App.css'; // Import the stylesheet
 
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "firebase/app";
-import { 
-    getAuth, 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    signOut, 
-    onAuthStateChanged 
+import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged
 } from "firebase/auth";
-import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
+import {
+    getFirestore,
+    collection,
+    addDoc,
     onSnapshot,
     doc,
     updateDoc,

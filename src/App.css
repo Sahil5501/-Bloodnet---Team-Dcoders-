@@ -140,6 +140,20 @@ body {
     align-items: center;
     justify-content: center;
 }
+/* Show the hamburger on small screens, hide on large ones */
+@media (min-width: 768px) {
+    .sidebar-toggle-button {
+        display: none;
+    }
+}
+/* Hide the hamburger on large screens, show on small ones */
+@media (max-width: 767px) {
+    .navbar-brand .sidebar-toggle-button {
+        display: flex;
+        /* margin-right: 0.5rem;  */
+    }
+}
+
 
 /* --- LAYOUT & SIDEBAR --- */
 .layout-container {
@@ -151,7 +165,6 @@ body {
 .main-content-wrapper {
     display: flex;
     flex-grow: 1;
-    position: relative;
 }
 
 .sidebar {
@@ -162,8 +175,6 @@ body {
     padding: 1.5rem 1rem;
     box-shadow: var(--shadow);
     transition: transform 0.3s ease-in-out, background-color 0.3s;
-
-    /* Hidden by default on all screens */
     position: fixed;
     top: 4rem;
     left: 0;
@@ -171,12 +182,26 @@ body {
     transform: translateX(calc(-1 * var(--sidebar-width)));
     z-index: 20;
 }
-
 .sidebar.sidebar-open {
     transform: translateX(0); /* Slide into view */
 }
+/* Show sidebar permanently on larger screens */
+@media (min-width: 768px) {
+    .sidebar {
+        position: sticky;
+        top: 4rem;
+        transform: translateX(0);
+    }
+    .main-content-wrapper {
+        display: grid;
+        grid-template-columns: var(--sidebar-width) 1fr;
+    }
+    .sidebar-overlay {
+        display: none !important;
+    }
+}
 
-/* Sidebar Overlay */
+/* Sidebar Overlay for mobile */
 .sidebar-overlay {
     position: fixed;
     top: 0;
@@ -185,6 +210,9 @@ body {
     height: 100%;
     background-color: rgba(0, 0, 0, 0.4);
     z-index: 15;
+    display: none;
+}
+.sidebar.sidebar-open + .sidebar-overlay {
     display: block;
 }
 
@@ -192,13 +220,9 @@ body {
 .main-content {
     flex-grow: 1;
     overflow-y: auto;
-    transition: margin-left 0.3s ease-in-out;
-    margin-left: 0; /* Ensures no margin when sidebar is closed */
+    width: 100%;
 }
 
-.main-content.main-content-shifted {
-    margin-left: var(--sidebar-width);
-}
 
 .sidebar-links {
     display: flex;
@@ -595,13 +619,4 @@ body {
 }
 .metric-value.fulfilled-value {
     color: #10b981; /* green-500 */
-}
-
-/* --- ADMIN DASHBOARD ADDITIONS --- */
-.requests-heading {
-    margin-top: 2rem;
-    margin-bottom: 1rem;
-    font-size: 1.5rem;
-    font-weight: bold;
-    color: var(--text-dark);
 }
