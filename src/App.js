@@ -3,17 +3,17 @@ import './App.css'; // Import the stylesheet
 
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "firebase/app";
-import {
-    getAuth,
-    createUserWithEmailAndPassword,
-    signInWithEmailAndPassword,
-    signOut,
-    onAuthStateChanged
+import { 
+    getAuth, 
+    createUserWithEmailAndPassword, 
+    signInWithEmailAndPassword, 
+    signOut, 
+    onAuthStateChanged 
 } from "firebase/auth";
-import {
-    getFirestore,
-    collection,
-    addDoc,
+import { 
+    getFirestore, 
+    collection, 
+    addDoc, 
     onSnapshot,
     doc,
     updateDoc,
@@ -75,16 +75,6 @@ const HistoryIcon = ({ className = "icon" }) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
 );
-const MenuIcon = ({ className = "icon" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-);
-const CloseIcon = ({ className = "icon" }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-    </svg>
-);
 
 const Notification = ({ message, type = 'success' }) => {
     if (!message) return null;
@@ -99,73 +89,34 @@ const ThemeToggle = ({ theme, toggleTheme }) => (
     </button>
 );
 
-// --- NEW LAYOUT COMPONENT WITH SIDEBAR ---
-const Layout = ({ userType, handleLogout, theme, toggleTheme, setPage, children }) => {
-    const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
-    const toggleSidebar = () => {
-        setIsSidebarOpen(!isSidebarOpen);
-    };
-
-    const handleNavLinkClick = (pageName) => {
-        setPage(pageName);
-        setIsSidebarOpen(false); // Close sidebar on navigation
-    };
-
-    return (
-        <div className="layout-container">
-            <header className="navbar">
-                <div className="navbar-container">
-                    <div className="navbar-brand">
-                        {/* Hamburger menu button for small screens */}
-                        <button className="sidebar-toggle-button" onClick={toggleSidebar} aria-label="Toggle sidebar">
-                            {isSidebarOpen ? <CloseIcon /> : <MenuIcon />}
-                        </button>
-                        <BloodDropIcon className="blood-icon" />
-                        <span className="brand-name">BloodNet {userType}</span>
-                    </div>
-                    <div className="navbar-controls">
-                        <button onClick={handleLogout} className="button button-primary">Logout</button>
-                        <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
-                    </div>
-                </div>
-            </header>
-
-            {/* Sidebar Overlay for mobile */}
-            {isSidebarOpen && <div className="sidebar-overlay" onClick={toggleSidebar}></div>}
-
-            <div className={`main-content-wrapper ${isSidebarOpen ? 'main-content-with-sidebar' : ''}`}>
-                <aside className={`sidebar ${isSidebarOpen ? 'sidebar-open' : ''}`}>
-                    <div className="sidebar-links">
-                        {userType === 'Admin' ? (
-                            <>
-                                <button onClick={() => handleNavLinkClick('dashboard')} className="sidebar-button">
-                                    <DashboardIcon /> Dashboard
-                                </button>
-                                <button onClick={() => handleNavLinkClick('createRequest')} className="sidebar-button">
-                                    <PlusIcon /> Create Request
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button onClick={() => handleNavLinkClick('dashboard')} className="sidebar-button">
-                                    <BloodDropIcon /> Active Requests
-                                </button>
-                                <button onClick={() => handleNavLinkClick('history')} className="sidebar-button">
-                                    <HistoryIcon /> Donation History
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </aside>
-                <main className="main-content">
-                    {children}
-                </main>
+// --- NAVBAR COMPONENT ---
+const Navbar = ({ userType, handleLogout, theme, toggleTheme, setPage }) => (
+    <nav className="navbar">
+        <div className="navbar-container">
+            <div className="navbar-brand">
+                <BloodDropIcon className="blood-icon" />
+                <span className="brand-name">BloodNet {userType}</span>
+            </div>
+            <div className="navbar-links">
+                {userType === 'Admin' ? (
+                    <>
+                        <button onClick={() => setPage('dashboard')} className="nav-button">Dashboard</button>
+                        <button onClick={() => setPage('createRequest')} className="nav-button">Create Request</button>
+                    </>
+                ) : (
+                    <>
+                        <button onClick={() => setPage('dashboard')} className="nav-button">Active Requests</button>
+                        <button onClick={() => setPage('history')} className="nav-button">Donation History</button>
+                    </>
+                )}
+            </div>
+            <div className="navbar-controls">
+                <button onClick={handleLogout} className="button button-primary">Logout</button>
+                <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
             </div>
         </div>
-    );
-};
-
+    </nav>
+);
 
 // =================================================================================================
 // --- DONOR COMPONENT ---
@@ -173,7 +124,8 @@ const Layout = ({ userType, handleLogout, theme, toggleTheme, setPage, children 
 const Donor = ({ theme, toggleTheme }) => {
     const [page, setPage] = useState('loading');
     const [user, setUser] = useState(null);
-    const [requests, setRequests] = useState([]);
+    const [activeRequests, setActiveRequests] = useState([]);
+    const [historyRequests, setHistoryRequests] = useState([]);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedRequest, setSelectedRequest] = useState(null);
     const [notification, setNotification] = useState({ message: '', type: 'success' });
@@ -188,13 +140,27 @@ const Donor = ({ theme, toggleTheme }) => {
     }, []);
 
     useEffect(() => {
-        if (!user) return;
-        const q = query(collection(db, "requests"), where("status", "==", "Active"), orderBy("createdAt", "desc"));
-        const unsubscribe = onSnapshot(q, (querySnapshot) => {
-            const requestsData = querySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            setRequests(requestsData);
+        if (!user?.email) return;
+
+        // Listener 1: Get all 'Active' requests for the dashboard
+        const activeQuery = query(collection(db, "requests"), where("status", "==", "Active"), orderBy("createdAt", "desc"));
+        const unsubscribeActive = onSnapshot(activeQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            setActiveRequests(data);
         });
-        return () => unsubscribe();
+
+        // Listener 2: Get the user's personal donation history
+        const historyQuery = query(collection(db, "requests"), where("donorEmail", "==", user.email), orderBy("createdAt", "desc"));
+        const unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
+            const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+            // Ensure we only show confirmed donations in history
+            setHistoryRequests(data.filter(req => req.status === 'Donated'));
+        });
+
+        return () => {
+            unsubscribeActive();
+            unsubscribeHistory();
+        };
     }, [user]);
 
     const showNotification = (message, type = 'success') => {
@@ -233,11 +199,14 @@ const Donor = ({ theme, toggleTheme }) => {
         if (page === 'auth') return <AuthPage showNotification={showNotification} userType="Donor" />;
 
         return (
-            <Layout userType="Donor" handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} setPage={setPage}>
-                {page === 'dashboard' && <DonorDashboard requests={requests} handleOpenModal={handleOpenModal} />}
-                {page === 'history' && <DonorHistory requests={requests.filter(r => r.status === 'Donated')} handleUndo={handleUndo} />}
-                {isModalOpen && <DonorModal onConfirm={handleDonate} onCancel={handleCloseModal} isLoading={isLoading} />}
-            </Layout>
+            <>
+                <Navbar userType="Donor" handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} setPage={setPage} />
+                <main className="main-content">
+                    {page === 'dashboard' && <DonorDashboard requests={activeRequests} handleOpenModal={handleOpenModal} />}
+                    {page === 'history' && <DonorHistory requests={historyRequests} handleUndo={handleUndo} />}
+                    {isModalOpen && <DonorModal onConfirm={handleDonate} onCancel={handleCloseModal} isLoading={isLoading} />}
+                </main>
+            </>
         );
     };
 
@@ -248,6 +217,7 @@ const Donor = ({ theme, toggleTheme }) => {
         </div>
     );
 };
+
 
 // --- Donor Sub-Components ---
 const DonorModal = ({ onConfirm, onCancel, isLoading }) => (
@@ -329,7 +299,6 @@ const DonorDashboard = ({ requests, handleOpenModal }) => {
     );
 };
 
-// NEW: DONOR HISTORY COMPONENT
 const DonorHistory = ({ requests, handleUndo }) => {
     return (
         <div className="page-container">
@@ -382,7 +351,6 @@ const Admin = ({ theme, toggleTheme }) => {
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
-            // Set the default page to 'requests' for Admin
             setPage(currentUser ? 'dashboard' : 'auth');
         });
         return () => unsubscribe();
@@ -410,11 +378,13 @@ const Admin = ({ theme, toggleTheme }) => {
         if (page === 'auth') return <AuthPage showNotification={showNotification} userType="Admin" />;
 
         return (
-            <Layout userType="Admin" handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} setPage={setPage}>
-                {/* Admin dashboard now directly displays all requests */}
-                {page === 'dashboard' && <AdminDashboard requests={requests} />}
-                {page === 'createRequest' && <CreateRequestPage setPage={setPage} showNotification={showNotification} />}
-            </Layout>
+            <>
+                <Navbar userType="Admin" handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} setPage={setPage} />
+                <main className="main-content">
+                    {page === 'dashboard' && <AdminDashboard requests={requests} />}
+                    {page === 'createRequest' && <CreateRequestPage setPage={setPage} showNotification={showNotification} />}
+                </main>
+            </>
         );
     };
 
