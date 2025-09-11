@@ -20,7 +20,9 @@ import {
     serverTimestamp,
     query,
     orderBy,
-    where
+    where,
+    deleteField,
+    setDoc
 } from "firebase/firestore";
 
 // --- FIREBASE CONFIGURATION ---
@@ -38,6 +40,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+
 
 // --- SHARED ICONS & COMPONENTS ---
 const BloodDropIcon = ({ className = "icon" }) => (
@@ -125,21 +128,23 @@ const Donor = ({ theme, toggleTheme }) => {
     }, []);
 
     useEffect(() => {
-        if (!user?.email) return;
+        if (!user?.uid) return;
 
-        // Listener 1: Get all 'Active' requests for the dashboard
         const activeQuery = query(collection(db, "requests"), where("status", "==", "Active"), orderBy("createdAt", "desc"));
         const unsubscribeActive = onSnapshot(activeQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
             setActiveRequests(data);
         });
 
-        // Listener 2: Get the user's personal donation history
-        const historyQuery = query(collection(db, "requests"), where("donorEmail", "==", user.email), orderBy("createdAt", "desc"));
+        const historyQuery = query(collection(db, "requests"), where("donorId", "==", user.uid));
         const unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            // Ensure we only show confirmed donations in history
-            setHistoryRequests(data.filter(req => req.status === 'Donated'));
+            const sortedData = data.sort((a, b) => {
+                const timeA = a.donationTimestamp?.toMillis() || 0;
+                const timeB = b.donationTimestamp?.toMillis() || 0;
+                return timeB - timeA;
+            });
+            setHistoryRequests(sortedData);
         });
 
         return () => {
@@ -162,7 +167,12 @@ const Donor = ({ theme, toggleTheme }) => {
         setIsLoading(true);
         try {
             const requestRef = doc(db, "requests", selectedRequest.id);
-            await updateDoc(requestRef, { status: 'Donated', donorEmail: user.email });
+            await updateDoc(requestRef, { 
+                status: 'Donated', 
+                donorEmail: user.email,
+                donorId: user.uid,
+                donationTimestamp: serverTimestamp()
+            });
             showNotification('Success! Donation status updated.');
         } catch (error) {
             showNotification('Error: Could not complete donation.', 'error');
@@ -175,7 +185,12 @@ const Donor = ({ theme, toggleTheme }) => {
 
     const handleUndo = async (requestId) => {
         const requestRef = doc(db, "requests", requestId);
-        await updateDoc(requestRef, { status: 'Active', donorEmail: null });
+        await updateDoc(requestRef, { 
+            status: 'Active', 
+            donorEmail: deleteField(),
+            donorId: deleteField(),
+            donationTimestamp: deleteField()
+        });
         showNotification('Donation status reverted.');
     };
 
@@ -381,11 +396,19 @@ const Admin = ({ theme, toggleTheme }) => {
     );
 };
 
-// --- Admin Sub-Components ---
+// --- Admin Sub-Components (WITH CLICKABLE METRICS) ---
 const AdminDashboard = ({ requests }) => {
+    const [filter, setFilter] = useState('all'); // 'all', 'active', or 'donated'
+
     const totalRequests = requests.length;
-    const activeRequests = requests.filter(r => r.status === 'Active').length;
-    const fulfilledRequests = requests.filter(r => r.status === 'Donated').length;
+    const activeRequestsCount = requests.filter(r => r.status === 'Active').length;
+    const fulfilledRequestsCount = requests.filter(r => r.status === 'Donated').length;
+
+    const filteredRequests = requests.filter(request => {
+        if (filter === 'active') return request.status === 'Active';
+        if (filter === 'donated') return request.status === 'Donated';
+        return true; // for 'all'
+    });
 
     return (
         <div className="page-container">
@@ -395,26 +418,30 @@ const AdminDashboard = ({ requests }) => {
             </header>
 
             <div className="metrics-grid">
-                <div className="metric-card">
+                <div className={`metric-card ${filter === 'all' ? 'active-metric' : ''}`} onClick={() => setFilter('all')}>
                     <h2>Total Requests</h2>
                     <p className="metric-value">{totalRequests}</p>
                 </div>
-                <div className="metric-card">
+                <div className={`metric-card ${filter === 'active' ? 'active-metric' : ''}`} onClick={() => setFilter('active')}>
                     <h2>Active Requests</h2>
-                    <p className="metric-value active-value">{activeRequests}</p>
+                    <p className="metric-value active-value">{activeRequestsCount}</p>
                 </div>
-                <div className="metric-card">
+                <div className={`metric-card ${filter === 'donated' ? 'active-metric' : ''}`} onClick={() => setFilter('donated')}>
                     <h2>Fulfilled Requests</h2>
-                    <p className="metric-value fulfilled-value">{fulfilledRequests}</p>
+                    <p className="metric-value fulfilled-value">{fulfilledRequestsCount}</p>
                 </div>
             </div>
 
-            <h2 className="requests-heading">All Requests</h2>
+            <h2 className="requests-heading">
+                {filter === 'all' && 'All Requests'}
+                {filter === 'active' && 'Active Requests'}
+                {filter === 'donated' && 'Fulfilled Requests'}
+            </h2>
             <div className="requests-grid">
-                {requests.length > 0 ? (
-                    requests.map(request => <AdminRequestCard key={request.id} request={request} />)
+                {filteredRequests.length > 0 ? (
+                    filteredRequests.map(request => <AdminRequestCard key={request.id} request={request} />)
                 ) : (
-                    <p>No requests found.</p>
+                    <p>No requests match the current filter.</p>
                 )}
             </div>
         </div>
@@ -425,7 +452,7 @@ const AdminRequestCard = ({ request }) => {
     const urgencyClass = `urgency-${request.urgency.toLowerCase()}`;
     const isDonated = request.status === 'Donated';
     return (
-        <div className={`request-card ${urgencyClass}`}>
+        <div className={`request-card ${urgencyClass} ${isDonated ? 'donated-card' : ''}`}>
             <div className="card-content">
                 <div className="card-header">
                     <div className="blood-type-icon">{request.bloodType}</div>
@@ -439,11 +466,15 @@ const AdminRequestCard = ({ request }) => {
                     <p>Units Required:</p>
                     <span>{request.units}</span>
                 </div>
-                <div className="card-actions">
-                    <div className={`button ${isDonated ? 'button-donated' : 'button-primary'}`}>
-                        {isDonated ? 'Fulfilled' : 'Pending'}
+                {isDonated && request.donorEmail ? (
+                    <div className="card-footer">
+                        Fulfilled by: <strong>{request.donorEmail}</strong>
                     </div>
-                </div>
+                ) : (
+                    <div className="card-actions">
+                         <div className="button button-primary">Pending</div>
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -518,13 +549,37 @@ const AuthPage = ({ showNotification, userType }) => {
     const handleAuth = async (e) => {
         e.preventDefault();
         setIsLoading(true);
-        const email = e.target.email.value;
-        const password = e.target.password.value;
+        const formData = new FormData(e.target);
+        const email = formData.get('email');
+        const password = formData.get('password');
+
         try {
             if (authMode === 'register') {
-                await createUserWithEmailAndPassword(auth, email, password);
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                if (userType === 'Donor') {
+                    try {
+                        const donorProfile = {
+                            uid: user.uid,
+                            email: user.email,
+                            name: formData.get('name'),
+                            age: formData.get('age'),
+                            gender: formData.get('gender'),
+                            mobile: formData.get('mobile'),
+                            address: formData.get('address'),
+                            contactPerson: formData.get('contactPerson'),
+                            role: 'Donor'
+                        };
+                        await setDoc(doc(db, "users", user.uid), donorProfile);
+                    } catch (dbError) {
+                        console.error("Error saving donor profile:", dbError);
+                        showNotification("Account created, but profile couldn't be saved.", 'error');
+                    }
+                }
                 showNotification('Registration successful! Please sign in.');
                 setAuthMode('login');
+
             } else {
                 await signInWithEmailAndPassword(auth, email, password);
             }
@@ -547,11 +602,42 @@ const AuthPage = ({ showNotification, userType }) => {
                     <p>{authMode === 'login' ? `Sign in to continue` : `Create an account`}</p>
                 </div>
                 <form onSubmit={handleAuth} className="auth-form">
+                    {authMode === 'register' && userType === 'Donor' && (
+                        <>
+                            <div className="form-group">
+                                <input name="name" type="text" required placeholder="Full Name" />
+                            </div>
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <input name="age" type="number" required placeholder="Age" min="18" max="65" />
+                                </div>
+                                <div className="form-group">
+                                    <select name="gender" required className="gender-select">
+                                        <option value="">Gender...</option>
+                                        <option value="Male">Male</option>
+                                        <option value="Female">Female</option>
+                                        <option value="Other">Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div className="form-group">
+                                <input name="mobile" type="tel" required placeholder="Mobile Number" />
+                            </div>
+                            <div className="form-group">
+                                <textarea name="address" required placeholder="Full Address" rows="3"></textarea>
+                            </div>
+                            <div className="form-group">
+                                <input name="contactPerson" type="text" required placeholder="Emergency Contact Person" />
+                            </div>
+                             <hr className="form-divider" />
+                        </>
+                    )}
+
                     <div className="form-group">
                         <input name="email" type="email" required placeholder="Your Email Address" />
                     </div>
                     <div className="form-group">
-                        <input name="password" type="password" required placeholder="Password" />
+                        <input name="password" type="password" required placeholder="Password (min. 6 characters)" />
                     </div>
                     <button type="submit" className="button button-primary button-full" disabled={isLoading}>
                         {isLoading ? <div className="spinner"></div> : (authMode === 'login' ? 'Sign In' : 'Register')}
@@ -623,3 +709,4 @@ export default function App() {
         </div>
     );
 }
+
