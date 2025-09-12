@@ -553,3 +553,100 @@ body {
     font-weight: bold;
     color: var(--text-dark);
 }
+.portal-container {
+display: flex;
+justify-content: center;
+align-items: center;
+min-height: 100vh;
+padding: 2rem;
+}
+
+.portal-card {
+background-color: var(--card-background-color, #ffffff);
+border-radius: 16px;
+padding: 3rem;
+box-shadow: var(--shadow, 0 4px 12px rgba(0, 0, 0, 0.08));
+text-align: center;
+max-width: 500px;
+width: 100%;
+border: 1px solid var(--border-color, #dee2e6);
+}
+
+.portal-header {
+margin-bottom: 2.5rem;
+}
+
+.portal-header h1 {
+font-size: 2rem;
+margin-bottom: 0.5rem;
+color: var(--text-color, #212529);
+}
+
+.portal-header p {
+color: var(--text-muted-color, #6c757d);
+font-size: 1.1rem;
+}
+
+.portal-icon {
+width: 60px;
+height: 60px;
+color: var(--primary-color, #d92c2c);
+margin: 0 auto 1rem;
+}
+
+.portal-actions {
+display: flex;
+flex-direction: column;
+gap: 1.5rem;
+}
+
+.portal-button {
+display: flex;
+justify-content: space-between;
+align-items: center;
+padding: 1.2rem 2rem;
+font-size: 1.2rem;
+font-weight: 600;
+border-radius: 12px;
+border: 2px solid transparent;
+cursor: pointer;
+box-shadow: var(--shadow, 0 4px 12px rgba(0, 0, 0, 0.08));
+transition: background-color 0.3s ease, color 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.portal-button:hover {
+transform: translateY(-4px) scale(1.02);
+box-shadow: 0 10px 20px rgba(0, 0, 0, 0.12);
+}
+
+.portal-arrow-icon {
+width: 28px;
+height: 28px;
+transition: transform 0.3s ease;
+}
+
+.portal-button:hover .portal-arrow-icon {
+transform: translateX(8px);
+}
+
+.portal-button.donor {
+background-color: rgba(217, 44, 44, 0.1);
+color: var(--primary-color, #d92c2c);
+border-color: var(--primary-color, #d92c2c);
+}
+
+.portal-button.donor:hover {
+background-color: var(--primary-color, #d92c2c);
+color: white;
+}
+
+.portal-button.admin {
+background-color: rgba(13, 110, 253, 0.1);
+color: var(--secondary-color, #0d6efd);
+border-color: var(--secondary-color, #0d6efd);
+}
+
+.portal-button.admin:hover {
+background-color: var(--secondary-color, #0d6efd);
+color: white;
+}
