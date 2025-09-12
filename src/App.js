@@ -612,7 +612,7 @@ const AuthPage = ({ showNotification, userType }) => {
                                     <input name="age" type="number" required placeholder="Age" min="18" max="65" />
                                 </div>
                                 <div className="form-group">
-                                    <select name="gender" required className="gender-select">
+                                    <select name="gender" required>
                                         <option value="">Gender...</option>
                                         <option value="Male">Male</option>
                                         <option value="Female">Female</option>
@@ -682,6 +682,7 @@ export default function App() {
                 return (
                     <div className="portal-container">
                         <div className="portal-card">
+                            <ThemeToggle theme={theme} toggleTheme={toggleTheme} />
                             <div className="portal-header">
                                 <BloodDropIcon className="portal-icon" />
                                 <h1>Welcome to BloodNet</h1>
