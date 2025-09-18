@@ -36,6 +36,7 @@ const firebaseConfig = {
     measurementId: "G-95ZE4E8REG"
 };
 
+
 // --- INITIALIZE FIREBASE ---
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -63,6 +64,12 @@ const MoonIcon = ({ className = "icon" }) => (
         <path strokeLinecap="round" strokeLinejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
     </svg>
 );
+const LightbulbIcon = ({ className = "icon" }) => (
+    <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+    </svg>
+);
+
 
 const Notification = ({ message, type = 'success' }) => {
     if (!message) return null;
@@ -119,6 +126,11 @@ const Donor = ({ theme, toggleTheme }) => {
     const [notification, setNotification] = useState({ message: '', type: 'success' });
     const [isLoading, setIsLoading] = useState(false);
 
+    // State for filters is lifted up to this component
+    const [bloodTypeFilter, setBloodTypeFilter] = useState('All');
+    const [urgencyFilter, setUrgencyFilter] = useState('All');
+    const [locationFilter, setLocationFilter] = useState('All');
+
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
             setUser(currentUser);
@@ -127,15 +139,40 @@ const Donor = ({ theme, toggleTheme }) => {
         return () => unsubscribe();
     }, []);
 
+    const showNotification = (message, type = 'success') => {
+        setNotification({ message, type });
+        setTimeout(() => setNotification({ message: '', type: 'success' }), 4000);
+    };
+
     useEffect(() => {
         if (!user?.uid) return;
 
-        const activeQuery = query(collection(db, "requests"), where("status", "==", "Active"), orderBy("createdAt", "desc"));
-        const unsubscribeActive = onSnapshot(activeQuery, (snapshot) => {
-            const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
-            setActiveRequests(data);
-        });
+        let constraints = [where("status", "==", "Active")];
+        if (locationFilter !== 'All') {
+            constraints.push(where("location", "==", locationFilter));
+        }
+        if (bloodTypeFilter !== 'All') {
+            constraints.push(where("bloodType", "==", bloodTypeFilter));
+        }
+        if (urgencyFilter !== 'All') {
+            constraints.push(where("urgency", "==", urgencyFilter));
+        }
+        constraints.push(orderBy("createdAt", "desc"));
 
+        const activeQuery = query(collection(db, "requests"), ...constraints);
+        
+        const unsubscribeActive = onSnapshot(activeQuery, 
+            (snapshot) => {
+                const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
+                setActiveRequests(data);
+            },
+            (error) => {
+                console.error("Firebase query failed: ", error);
+                showNotification("Error fetching requests. You may need to create a Firestore index. Check the console for a link.", "error");
+            }
+        );
+
+        // History query remains the same
         const historyQuery = query(collection(db, "requests"), where("donorId", "==", user.uid));
         const unsubscribeHistory = onSnapshot(historyQuery, (snapshot) => {
             const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
@@ -151,12 +188,7 @@ const Donor = ({ theme, toggleTheme }) => {
             unsubscribeActive();
             unsubscribeHistory();
         };
-    }, [user]);
-
-    const showNotification = (message, type = 'success') => {
-        setNotification({ message, type });
-        setTimeout(() => setNotification({ message: '', type: 'success' }), 4000);
-    };
+    }, [user, locationFilter, bloodTypeFilter, urgencyFilter]); // Re-run query when user or filters change
 
     const handleLogout = async () => { await signOut(auth); };
     const handleOpenModal = (request) => { setSelectedRequest(request); setIsModalOpen(true); };
@@ -202,7 +234,14 @@ const Donor = ({ theme, toggleTheme }) => {
             <>
                 <Navbar userType="Donor" handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} setPage={setPage} />
                 <main className="main-content">
-                    {page === 'dashboard' && <DonorDashboard requests={activeRequests} handleOpenModal={handleOpenModal} />}
+                    {page === 'dashboard' && 
+                        <DonorDashboard 
+                            requests={activeRequests} 
+                            handleOpenModal={handleOpenModal}
+                            filters={{ locationFilter, bloodTypeFilter, urgencyFilter }}
+                            setFilters={{ setLocationFilter, setBloodTypeFilter, setUrgencyFilter }}
+                        />
+                    }
                     {page === 'history' && <DonorHistory requests={historyRequests} handleUndo={handleUndo} />}
                     {isModalOpen && <DonorModal onConfirm={handleDonate} onCancel={handleCloseModal} isLoading={isLoading} />}
                 </main>
@@ -234,6 +273,7 @@ const DonorModal = ({ onConfirm, onCancel, isLoading }) => (
         </div>
     </div>
 );
+
 const DonorRequestCard = ({ request, handleOpenModal }) => {
     const urgencyClass = `urgency-${request.urgency.toLowerCase()}`;
     return (
@@ -243,7 +283,7 @@ const DonorRequestCard = ({ request, handleOpenModal }) => {
                     <div className="blood-type-icon">{request.bloodType}</div>
                     <div className="header-text">
                         <h3>{request.hospital}</h3>
-                        <p>For: {request.patientName}</p>
+                        <p>For: {request.patientName} in <strong>{request.location}</strong></p>
                     </div>
                     <span className={`urgency-badge ${urgencyClass}`}>{request.urgency}</span>
                 </div>
@@ -260,39 +300,83 @@ const DonorRequestCard = ({ request, handleOpenModal }) => {
         </div>
     );
 };
-const DonorDashboard = ({ requests, handleOpenModal }) => {
-    const [bloodTypeFilter, setBloodTypeFilter] = useState('All');
-    const [urgencyFilter, setUrgencyFilter] = useState('All');
+
+// --- "DID YOU KNOW?" COMPONENT ---
+// The 'facts' array is defined outside the component so it's not recreated on every render.
+const facts = [
+    "A single blood donation can save up to three lives.",
+    "Someone needs blood every two seconds.",
+    "Only 38% of the population is eligible to donate blood, but less than 10% do.",
+    "Your body replaces the donated blood volume within 48 hours.",
+    "There is no substitute for human blood."
+];
+
+const DidYouKnowCard = () => {
+    const [fact, setFact] = useState('');
+
+    useEffect(() => {
+        // No dependencies are needed here because 'facts' is a stable constant.
+        setFact(facts[Math.floor(Math.random() * facts.length)]);
+    }, []);
+
+    return (
+        <div className="did-you-know-card">
+            <div className="card-header">
+                <LightbulbIcon className="icon" />
+                <h3>Did You Know?</h3>
+            </div>
+            <p>{fact}</p>
+        </div>
+    );
+};
+
+const DonorDashboard = ({ requests, handleOpenModal, filters, setFilters }) => {
+    const { locationFilter, bloodTypeFilter, urgencyFilter } = filters;
+    const { setLocationFilter, setBloodTypeFilter, setUrgencyFilter } = setFilters;
+    
     const bloodTypes = ['All', 'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
     const urgencies = ['All', 'High', 'Medium', 'Low'];
-    const filteredRequests = requests.filter(request => {
-        const bloodTypeMatch = bloodTypeFilter === 'All' || request.bloodType === bloodTypeFilter;
-        const urgencyMatch = urgencyFilter === 'All' || request.urgency === urgencyFilter;
-        return bloodTypeMatch && urgencyMatch;
-    });
+    // In a real app, this list would likely be fetched from a database
+    const locations = ['All', 'Davorlim', 'Margao', 'Panjim', 'Vasco', 'Ponda'];
+
     return (
         <div className="page-container">
             <header className="page-header">
                 <h1>Active Requests</h1>
                 <p>Find verified, nearby blood requests and save a life.</p>
             </header>
-            <div className="filter-section">
-                <h2>Filter by Blood Type</h2>
-                <div className="filter-buttons">
-                    {bloodTypes.map(type => (<button key={type} onClick={() => setBloodTypeFilter(type)} className={`filter-button ${bloodTypeFilter === type ? 'active' : ''}`}>{type}</button>))}
+
+            <div className="dashboard-layout">
+                <div className="filter-controls">
+                    <div className="filter-section">
+                        <h2>Filter by Location</h2>
+                        <div className="filter-buttons">
+                            {locations.map(loc => (<button key={loc} onClick={() => setLocationFilter(loc)} className={`filter-button ${locationFilter === loc ? 'active' : ''}`}>{loc}</button>))}
+                        </div>
+                    </div>
+                    <div className="filter-section">
+                        <h2>Filter by Blood Type</h2>
+                        <div className="filter-buttons">
+                            {bloodTypes.map(type => (<button key={type} onClick={() => setBloodTypeFilter(type)} className={`filter-button ${bloodTypeFilter === type ? 'active' : ''}`}>{type}</button>))}
+                        </div>
+                    </div>
+                    <div className="filter-section">
+                        <h2>Filter by Urgency</h2>
+                        <div className="filter-buttons">
+                            {urgencies.map(level => (<button key={level} onClick={() => setUrgencyFilter(level)} className={`filter-button ${urgencyFilter === level ? 'active' : ''}`}>{level}</button>))}
+                        </div>
+                    </div>
+                </div>
+                <div className="info-panel">
+                    <DidYouKnowCard />
                 </div>
             </div>
-            <div className="filter-section">
-                <h2>Filter by Urgency</h2>
-                <div className="filter-buttons">
-                    {urgencies.map(level => (<button key={level} onClick={() => setUrgencyFilter(level)} className={`filter-button ${urgencyFilter === level ? 'active' : ''}`}>{level}</button>))}
-                </div>
-            </div>
+
             <div className="requests-grid">
-                {filteredRequests.length > 0 ? (
-                    filteredRequests.map(request => <DonorRequestCard key={request.id} request={request} handleOpenModal={handleOpenModal} />)
+                {requests.length > 0 ? (
+                    requests.map(request => <DonorRequestCard key={request.id} request={request} handleOpenModal={handleOpenModal} />)
                 ) : (
-                    <p>No active requests for the selected filters.</p>
+                    <p className="no-requests-message">No active requests match your current filters. Try expanding your search!</p>
                 )}
             </div>
         </div>
@@ -486,9 +570,14 @@ const CreateRequestPage = ({ setPage, showNotification }) => {
         setIsLoading(true);
         const formData = new FormData(e.target);
         const newRequest = {
-            patientName: formData.get('patientName'), hospital: formData.get('hospital'),
-            bloodType: formData.get('bloodType'), units: parseInt(formData.get('units'), 10),
-            urgency: formData.get('urgency'), status: 'Active', createdAt: serverTimestamp()
+            patientName: formData.get('patientName'), 
+            hospital: formData.get('hospital'),
+            location: formData.get('location'),
+            bloodType: formData.get('bloodType'), 
+            units: parseInt(formData.get('units'), 10),
+            urgency: formData.get('urgency'), 
+            status: 'Active', 
+            createdAt: serverTimestamp()
         };
         try {
             await addDoc(collection(db, "requests"), newRequest);
@@ -511,6 +600,10 @@ const CreateRequestPage = ({ setPage, showNotification }) => {
                 <div className="form-group">
                     <label htmlFor="hospital">Hospital/Clinic Name</label>
                     <input type="text" id="hospital" name="hospital" required />
+                </div>
+                 <div className="form-group">
+                    <label htmlFor="location">Location (City)</label>
+                    <input type="text" id="location" name="location" required />
                 </div>
                 <div className="form-row">
                     <div className="form-group">
@@ -710,3 +803,4 @@ export default function App() {
         </div>
     );
 }
+
