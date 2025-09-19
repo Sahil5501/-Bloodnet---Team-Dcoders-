@@ -1,19 +1,19 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react'; // Added useRef
 import './App.css'; // Import the stylesheet
 
 // --- FIREBASE IMPORTS ---
 import { initializeApp } from "firebase/app";
-import { 
-    getAuth, 
-    createUserWithEmailAndPassword, 
-    signInWithEmailAndPassword, 
-    signOut, 
-    onAuthStateChanged 
+import {
+    getAuth,
+    createUserWithEmailAndPassword,
+    signInWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged
 } from "firebase/auth";
-import { 
-    getFirestore, 
-    collection, 
-    addDoc, 
+import {
+    getFirestore,
+    collection,
+    addDoc,
     onSnapshot,
     doc,
     updateDoc,
@@ -22,8 +22,17 @@ import {
     orderBy,
     where,
     deleteField,
-    setDoc
+    setDoc,
+    getDoc
 } from "firebase/firestore";
+// --- NEW: Import Firebase Storage modules ---
+import { 
+    getStorage, 
+    ref, 
+    uploadBytes, 
+    getDownloadURL 
+} from "firebase/storage";
+
 
 // --- FIREBASE CONFIGURATION ---
 const firebaseConfig = {
@@ -41,6 +50,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
+const storage = getStorage(app); // --- NEW: Initialize Firebase Storage ---
 
 
 // --- SHARED ICONS & COMPONENTS ---
@@ -161,7 +171,7 @@ const Donor = ({ theme, toggleTheme }) => {
 
         const activeQuery = query(collection(db, "requests"), ...constraints);
         
-        const unsubscribeActive = onSnapshot(activeQuery, 
+        const unsubscribeActive = onSnapshot(activeQuery,
             (snapshot) => {
                 const data = snapshot.docs.map(doc => ({ ...doc.data(), id: doc.id }));
                 setActiveRequests(data);
@@ -198,15 +208,23 @@ const Donor = ({ theme, toggleTheme }) => {
         if (!user || !selectedRequest) return;
         setIsLoading(true);
         try {
+            const userDocRef = doc(db, "users", user.uid);
+            const userDoc = await getDoc(userDocRef);
+            const donorName = userDoc.data()?.fullName || user.email;
+
             const requestRef = doc(db, "requests", selectedRequest.id);
-            await updateDoc(requestRef, { 
-                status: 'Donated', 
+            await updateDoc(requestRef, {
+                status: 'Donated',
                 donorEmail: user.email,
                 donorId: user.uid,
+                donorName: donorName,
                 donationTimestamp: serverTimestamp()
             });
+
             showNotification('Success! Donation status updated.');
+            setPage('history');
         } catch (error) {
+            console.error("Error donating: ", error);
             showNotification('Error: Could not complete donation.', 'error');
         } finally {
             setIsLoading(false);
@@ -217,10 +235,11 @@ const Donor = ({ theme, toggleTheme }) => {
 
     const handleUndo = async (requestId) => {
         const requestRef = doc(db, "requests", requestId);
-        await updateDoc(requestRef, { 
-            status: 'Active', 
+        await updateDoc(requestRef, {
+            status: 'Active',
             donorEmail: deleteField(),
             donorId: deleteField(),
+            donorName: deleteField(),
             donationTimestamp: deleteField()
         });
         showNotification('Donation status reverted.');
@@ -234,9 +253,9 @@ const Donor = ({ theme, toggleTheme }) => {
             <>
                 <Navbar userType="Donor" handleLogout={handleLogout} theme={theme} toggleTheme={toggleTheme} setPage={setPage} />
                 <main className="main-content">
-                    {page === 'dashboard' && 
-                        <DonorDashboard 
-                            requests={activeRequests} 
+                    {page === 'dashboard' &&
+                        <DonorDashboard
+                            requests={activeRequests}
                             handleOpenModal={handleOpenModal}
                             filters={{ locationFilter, bloodTypeFilter, urgencyFilter }}
                             setFilters={{ setLocationFilter, setBloodTypeFilter, setUrgencyFilter }}
@@ -274,28 +293,51 @@ const DonorModal = ({ onConfirm, onCancel, isLoading }) => (
     </div>
 );
 
+// --- Time formatting utility ---
+const formatTimeAgo = (timestamp) => {
+    if (!timestamp) return 'Just now';
+    const now = new Date();
+    const seconds = Math.floor((now - timestamp.toDate()) / 1000);
+
+    let interval = seconds / 31536000;
+    if (interval > 1) return Math.floor(interval) + " years ago";
+    interval = seconds / 2592000;
+    if (interval > 1) return Math.floor(interval) + " months ago";
+    interval = seconds / 86400;
+    if (interval > 1) return Math.floor(interval) + " days ago";
+    interval = seconds / 3600;
+    if (interval > 1) return Math.floor(interval) + " hours ago";
+    interval = seconds / 60;
+    if (interval > 1) return Math.floor(interval) + " minutes ago";
+    return "Just now";
+};
+
+
 const DonorRequestCard = ({ request, handleOpenModal }) => {
     const urgencyClass = `urgency-${request.urgency.toLowerCase()}`;
     return (
         <div className={`request-card ${urgencyClass}`}>
+            <div className="card-header">
+                 <span className={`urgency-badge ${urgencyClass}`}>{request.urgency}</span>
+                 <p className="card-time">{formatTimeAgo(request.createdAt)}</p>
+            </div>
             <div className="card-content">
-                <div className="card-header">
+                <div className="card-main-info">
                     <div className="blood-type-icon">{request.bloodType}</div>
                     <div className="header-text">
-                        <h3>{request.hospital}</h3>
-                        <p>For: {request.patientName} in <strong>{request.location}</strong></p>
+                        <h3>{request.bloodType} Blood Needed</h3>
+                        <p>{request.hospital} - <strong>{request.location}</strong></p>
                     </div>
-                    <span className={`urgency-badge ${urgencyClass}`}>{request.urgency}</span>
                 </div>
-                <div className="card-details">
-                    <p>Units Required:</p>
-                    <span>{request.units}</span>
+                 <div className="card-details">
+                    <p>For: {request.patientName}</p>
+                    <span>{request.units} Units</span>
                 </div>
-                <div className="card-actions">
-                    <button className="button button-primary" onClick={() => handleOpenModal(request)}>
-                        I can donate
-                    </button>
-                </div>
+            </div>
+            <div className="card-actions">
+                <button className="button button-primary button-full" onClick={() => handleOpenModal(request)}>
+                    I can donate
+                </button>
             </div>
         </div>
     );
@@ -505,14 +547,17 @@ const AdminDashboard = ({ requests }) => {
                 <div className={`metric-card ${filter === 'all' ? 'active-metric' : ''}`} onClick={() => setFilter('all')}>
                     <h2>Total Requests</h2>
                     <p className="metric-value">{totalRequests}</p>
+                    <p className="metric-change">+5% from last month</p>
                 </div>
                 <div className={`metric-card ${filter === 'active' ? 'active-metric' : ''}`} onClick={() => setFilter('active')}>
                     <h2>Active Requests</h2>
                     <p className="metric-value active-value">{activeRequestsCount}</p>
+                    <p className="metric-change">-2% from last month</p>
                 </div>
                 <div className={`metric-card ${filter === 'donated' ? 'active-metric' : ''}`} onClick={() => setFilter('donated')}>
                     <h2>Fulfilled Requests</h2>
                     <p className="metric-value fulfilled-value">{fulfilledRequestsCount}</p>
+                    <p className="metric-change">+8% from last month</p>
                 </div>
             </div>
 
@@ -550,19 +595,21 @@ const AdminRequestCard = ({ request }) => {
                     <p>Units Required:</p>
                     <span>{request.units}</span>
                 </div>
-                {isDonated && request.donorEmail ? (
-                    <div className="card-footer">
-                        Fulfilled by: <strong>{request.donorEmail}</strong>
+            </div>
+            <div className="card-actions">
+                {isDonated ? (
+                    <div className="card-footer donated-footer">
+                        <span className="status-badge-donated">✓ Donated</span>
+                        <span>Fulfilled by: <strong>{request.donorName || request.donorEmail}</strong></span>
                     </div>
                 ) : (
-                    <div className="card-actions">
-                         <div className="button button-primary">Pending</div>
-                    </div>
+                    <div className="button button-pending">Pending</div>
                 )}
             </div>
         </div>
     );
 };
+
 const CreateRequestPage = ({ setPage, showNotification }) => {
     const [isLoading, setIsLoading] = useState(false);
     const handleSubmit = async (e) => {
@@ -570,13 +617,16 @@ const CreateRequestPage = ({ setPage, showNotification }) => {
         setIsLoading(true);
         const formData = new FormData(e.target);
         const newRequest = {
-            patientName: formData.get('patientName'), 
+            patientName: formData.get('patientName'),
             hospital: formData.get('hospital'),
             location: formData.get('location'),
-            bloodType: formData.get('bloodType'), 
+            hospitalAddress: formData.get('hospitalAddress'),
+            bloodType: formData.get('bloodType'),
             units: parseInt(formData.get('units'), 10),
-            urgency: formData.get('urgency'), 
-            status: 'Active', 
+            urgency: formData.get('urgency'),
+            requiredByDate: formData.get('requiredByDate'),
+            requiredByTime: formData.get('requiredByTime'),
+            status: 'Active',
             createdAt: serverTimestamp()
         };
         try {
@@ -594,32 +644,42 @@ const CreateRequestPage = ({ setPage, showNotification }) => {
             <header className="page-header"><h1>Create a Blood Request</h1></header>
             <form onSubmit={handleSubmit} className="form-card">
                 <div className="form-group">
-                    <label htmlFor="patientName">Patient's Name</label>
-                    <input type="text" id="patientName" name="patientName" required />
+                    <label htmlFor="patientName">Patient's Name (Optional)</label>
+                    <input type="text" id="patientName" name="patientName" />
                 </div>
                 <div className="form-group">
-                    <label htmlFor="hospital">Hospital/Clinic Name</label>
+                    <label htmlFor="hospital">Hospital Name *</label>
                     <input type="text" id="hospital" name="hospital" required />
                 </div>
                  <div className="form-group">
-                    <label htmlFor="location">Location (City)</label>
-                    <input type="text" id="location" name="location" required />
+                    <label htmlFor="hospitalAddress">Hospital Address *</label>
+                    <textarea id="hospitalAddress" name="hospitalAddress" rows="3" required></textarea>
                 </div>
                 <div className="form-row">
                     <div className="form-group">
-                        <label htmlFor="bloodType">Blood Type</label>
+                        <label htmlFor="bloodType">Blood Group *</label>
                         <select id="bloodType" name="bloodType" required>
                             <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
                             <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
                         </select>
                     </div>
                     <div className="form-group">
-                        <label htmlFor="units">Units Required</label>
+                        <label htmlFor="units">Units Required *</label>
                         <input type="number" id="units" name="units" min="1" required />
                     </div>
                 </div>
+                <div className="form-row">
+                    <div className="form-group">
+                        <label htmlFor="requiredByDate">Required By Date *</label>
+                        <input type="date" id="requiredByDate" name="requiredByDate" required />
+                    </div>
+                    <div className="form-group">
+                        <label htmlFor="requiredByTime">Required By Time *</label>
+                        <input type="time" id="requiredByTime" name="requiredByTime" required />
+                    </div>
+                </div>
                 <div className="form-group">
-                    <label htmlFor="urgency">Urgency</label>
+                    <label htmlFor="urgency">Urgency Level *</label>
                     <select id="urgency" name="urgency" required>
                         <option>High</option><option>Medium</option><option>Low</option>
                     </select>
@@ -638,6 +698,18 @@ const CreateRequestPage = ({ setPage, showNotification }) => {
 const AuthPage = ({ showNotification, userType }) => {
     const [authMode, setAuthMode] = useState('login');
     const [isLoading, setIsLoading] = useState(false);
+    // --- NEW: State for image file and preview ---
+    const [profileImage, setProfileImage] = useState(null);
+    const [imagePreviewUrl, setImagePreviewUrl] = useState('');
+    const fileInputRef = useRef(null);
+
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setProfileImage(file);
+            setImagePreviewUrl(URL.createObjectURL(file));
+        }
+    };
 
     const handleAuth = async (e) => {
         e.preventDefault();
@@ -652,17 +724,26 @@ const AuthPage = ({ showNotification, userType }) => {
                 const user = userCredential.user;
 
                 if (userType === 'Donor') {
+                    let photoURL = ''; // Default photo URL is empty
+                    // Upload image if one was selected
+                    if (profileImage) {
+                        const storageRef = ref(storage, `profileImages/${user.uid}/${profileImage.name}`);
+                        await uploadBytes(storageRef, profileImage);
+                        photoURL = await getDownloadURL(storageRef);
+                    }
+
                     try {
                         const donorProfile = {
                             uid: user.uid,
                             email: user.email,
-                            name: formData.get('name'),
-                            age: formData.get('age'),
-                            gender: formData.get('gender'),
-                            mobile: formData.get('mobile'),
-                            address: formData.get('address'),
-                            contactPerson: formData.get('contactPerson'),
-                            role: 'Donor'
+                            fullName: formData.get('fullName'),
+                            bloodGroup: formData.get('bloodGroup'),
+                            city: formData.get('city'),
+                            phone: formData.get('phone'),
+                            lastDonationDate: formData.get('lastDonationDate'),
+                            availableForEmergency: formData.get('availableForEmergency') === 'on',
+                            role: 'Donor',
+                            photoURL: photoURL // Save the image URL
                         };
                         await setDoc(doc(db, "users", user.uid), donorProfile);
                     } catch (dbError) {
@@ -691,50 +772,94 @@ const AuthPage = ({ showNotification, userType }) => {
         <div className="auth-container">
             <div className="auth-card">
                 <div className="auth-header">
-                    <h2>{userType} Portal</h2>
-                    <p>{authMode === 'login' ? `Sign in to continue` : `Create an account`}</p>
+                    <h2>{authMode === 'login' ? 'Welcome back' : `Create ${userType} Account`}</h2>
+                    <p>{authMode === 'login' ? `Sign in to continue to the ${userType} Portal` : `Help us create your profile with some basic information`}</p>
                 </div>
                 <form onSubmit={handleAuth} className="auth-form">
                     {authMode === 'register' && userType === 'Donor' && (
                         <>
-                            <div className="form-group">
-                                <input name="name" type="text" required placeholder="Full Name" />
+                            {/* --- NEW: Functional Photo Uploader --- */}
+                            <div className="form-group form-group-center">
+                               <input 
+                                    type="file" 
+                                    ref={fileInputRef} 
+                                    onChange={handleImageChange}
+                                    accept="image/*"
+                                    style={{ display: 'none' }}
+                                />
+                               <div className="profile-photo-placeholder" onClick={() => fileInputRef.current.click()}>
+                                   {imagePreviewUrl ? (
+                                       <img src={imagePreviewUrl} alt="Profile Preview" className="profile-photo-preview" />
+                                   ) : (
+                                       <>
+                                           <span>Upload Photo</span>
+                                           <small>JPG, PNG up to 5MB</small>
+                                       </>
+                                   )}
+                               </div>
                             </div>
+
                             <div className="form-row">
                                 <div className="form-group">
-                                    <input name="age" type="number" required placeholder="Age" min="18" max="65" />
+                                    <input name="fullName" type="text" required placeholder="Full Name *" />
                                 </div>
                                 <div className="form-group">
-                                    <select name="gender" required>
-                                        <option value="">Gender...</option>
-                                        <option value="Male">Male</option>
-                                        <option value="Female">Female</option>
-                                        <option value="Other">Other</option>
+                                     <select name="bloodGroup" required>
+                                        <option value="">Blood Group *</option>
+                                        <option>A+</option><option>A-</option><option>B+</option><option>B-</option>
+                                        <option>AB+</option><option>AB-</option><option>O+</option><option>O-</option>
                                     </select>
                                 </div>
                             </div>
-                            <div className="form-group">
-                                <input name="mobile" type="tel" required placeholder="Mobile Number" />
+                            <div className="form-row">
+                                <div className="form-group">
+                                    <input name="city" type="text" required placeholder="City *" />
+                                </div>
+                                <div className="form-group">
+                                    <input name="phone" type="tel" required placeholder="Phone Number *" />
+                                </div>
                             </div>
-                            <div className="form-group">
-                                <textarea name="address" required placeholder="Full Address" rows="3"></textarea>
+                             <div className="form-group">
+                                <label htmlFor="lastDonationDate">Last Donation Date (leave blank if first-time)</label>
+                                <input name="lastDonationDate" id="lastDonationDate" type="date" />
                             </div>
-                            <div className="form-group">
-                                <input name="contactPerson" type="text" required placeholder="Emergency Contact Person" />
+                            <div className="form-toggle-group">
+                                <label>Available for Emergency Requests</label>
+                                <label className="switch">
+                                    <input type="checkbox" name="availableForEmergency" />
+                                    <span className="slider round"></span>
+                                </label>
                             </div>
-                             <hr className="form-divider" />
+                            <hr className="form-divider" />
                         </>
                     )}
 
                     <div className="form-group">
-                        <input name="email" type="email" required placeholder="Your Email Address" />
+                        <input name="email" type="email" required placeholder="Email Address *" />
                     </div>
                     <div className="form-group">
                         <input name="password" type="password" required placeholder="Password (min. 6 characters)" />
                     </div>
+
+                    {authMode === 'login' && (
+                        <div className="form-extra-options">
+                            <label><input type="checkbox" name="remember" /> Remember me</label>
+                            <button type="button" className="link-button">Forgot password?</button>
+                        </div>
+                    )}
+
                     <button type="submit" className="button button-primary button-full" disabled={isLoading}>
-                        {isLoading ? <div className="spinner"></div> : (authMode === 'login' ? 'Sign In' : 'Register')}
+                        {isLoading ? <div className="spinner"></div> : (authMode === 'login' ? 'Sign In' : 'Create Account')}
                     </button>
+
+                    {authMode === 'login' && (
+                         <>
+                            <div className="social-auth-divider">Or continue with</div>
+                            <button type="button" className="button google-signin-button" disabled>
+                                Sign in with Google
+                            </button>
+                         </>
+                    )}
                 </form>
                 <div className="auth-toggle">
                     {authMode === 'login' ? (
@@ -803,4 +928,3 @@ export default function App() {
         </div>
     );
 }
-
