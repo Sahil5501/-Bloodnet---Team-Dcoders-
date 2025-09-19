@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'; // Added useRef
+import React, { useState, useEffect, useRef } from 'react';
 import './App.css'; // Import the stylesheet
 
 // --- FIREBASE IMPORTS ---
@@ -8,7 +8,9 @@ import {
     createUserWithEmailAndPassword,
     signInWithEmailAndPassword,
     signOut,
-    onAuthStateChanged
+    onAuthStateChanged,
+    GoogleAuthProvider, // --- NEW: Import Google Auth Provider ---
+    signInWithPopup     // --- NEW: Import Sign-In with Popup ---
 } from "firebase/auth";
 import {
     getFirestore,
@@ -25,7 +27,6 @@ import {
     setDoc,
     getDoc
 } from "firebase/firestore";
-// --- NEW: Import Firebase Storage modules ---
 import { 
     getStorage, 
     ref, 
@@ -50,7 +51,7 @@ const firebaseConfig = {
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const db = getFirestore(app);
-const storage = getStorage(app); // --- NEW: Initialize Firebase Storage ---
+const storage = getStorage(app); 
 
 
 // --- SHARED ICONS & COMPONENTS ---
@@ -77,6 +78,14 @@ const MoonIcon = ({ className = "icon" }) => (
 const LightbulbIcon = ({ className = "icon" }) => (
     <svg xmlns="http://www.w3.org/2000/svg" className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+    </svg>
+);
+const GoogleIcon = () => (
+    <svg className="google-icon" viewBox="0 0 24 24">
+        <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+        <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+        <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+        <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
     </svg>
 );
 
@@ -695,10 +704,13 @@ const CreateRequestPage = ({ setPage, showNotification }) => {
 // =================================================================================================
 // --- SHARED AUTH COMPONENT ---
 // =================================================================================================
+
+// --- NEW: Create the provider instance outside the component ---
+const googleProvider = new GoogleAuthProvider();
+
 const AuthPage = ({ showNotification, userType }) => {
     const [authMode, setAuthMode] = useState('login');
     const [isLoading, setIsLoading] = useState(false);
-    // --- NEW: State for image file and preview ---
     const [profileImage, setProfileImage] = useState(null);
     const [imagePreviewUrl, setImagePreviewUrl] = useState('');
     const fileInputRef = useRef(null);
@@ -708,6 +720,38 @@ const AuthPage = ({ showNotification, userType }) => {
         if (file) {
             setProfileImage(file);
             setImagePreviewUrl(URL.createObjectURL(file));
+        }
+    };
+
+    // --- NEW: Handle Google Sign-In ---
+    const handleGoogleSignIn = async () => {
+        setIsLoading(true);
+        try {
+            const result = await signInWithPopup(auth, googleProvider);
+            const user = result.user;
+
+            // Check if the user is new. If so, create a profile for them.
+            const userDocRef = doc(db, "users", user.uid);
+            const userDoc = await getDoc(userDocRef);
+
+            if (!userDoc.exists()) {
+                const donorProfile = {
+                    uid: user.uid,
+                    email: user.email,
+                    fullName: user.displayName,
+                    photoURL: user.photoURL,
+                    role: 'Donor'
+                    // Add other default fields if necessary
+                };
+                await setDoc(userDocRef, donorProfile);
+                showNotification(`Welcome, ${user.displayName}! Your profile has been created.`);
+            }
+
+        } catch (error) {
+            console.error("Google Sign-In Error:", error);
+            showNotification('Could not sign in with Google.', 'error');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -724,8 +768,7 @@ const AuthPage = ({ showNotification, userType }) => {
                 const user = userCredential.user;
 
                 if (userType === 'Donor') {
-                    let photoURL = ''; // Default photo URL is empty
-                    // Upload image if one was selected
+                    let photoURL = '';
                     if (profileImage) {
                         const storageRef = ref(storage, `profileImages/${user.uid}/${profileImage.name}`);
                         await uploadBytes(storageRef, profileImage);
@@ -743,7 +786,7 @@ const AuthPage = ({ showNotification, userType }) => {
                             lastDonationDate: formData.get('lastDonationDate'),
                             availableForEmergency: formData.get('availableForEmergency') === 'on',
                             role: 'Donor',
-                            photoURL: photoURL // Save the image URL
+                            photoURL: photoURL
                         };
                         await setDoc(doc(db, "users", user.uid), donorProfile);
                     } catch (dbError) {
@@ -778,7 +821,6 @@ const AuthPage = ({ showNotification, userType }) => {
                 <form onSubmit={handleAuth} className="auth-form">
                     {authMode === 'register' && userType === 'Donor' && (
                         <>
-                            {/* --- NEW: Functional Photo Uploader --- */}
                             <div className="form-group form-group-center">
                                <input 
                                     type="file" 
@@ -855,7 +897,8 @@ const AuthPage = ({ showNotification, userType }) => {
                     {authMode === 'login' && (
                          <>
                             <div className="social-auth-divider">Or continue with</div>
-                            <button type="button" className="button google-signin-button" disabled>
+                            <button type="button" className="button google-signin-button" onClick={handleGoogleSignIn}>
+                                <GoogleIcon />
                                 Sign in with Google
                             </button>
                          </>

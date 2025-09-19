@@ -46,6 +46,11 @@ body {
 .portal-icon { height: 3rem; width: 3rem; color: var(--primary-color); margin: 0 auto 1rem; }
 .portal-arrow-icon { height: 1.5rem; width: 1.5rem; margin-left: 0.5rem; }
 .blood-icon { color: var(--primary-color); }
+/* --- NEW: Fix for giant Google Icon --- */
+.google-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+}
 
 /* --- BUTTONS --- */
 .button { padding: 0.5rem 1rem; border-radius: 0.375rem; font-size: 0.875rem; font-weight: 500; border: none; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: background-color 0.3s ease; }
@@ -55,7 +60,18 @@ body {
 .button-undo { background-color: var(--text-light); color: white; }
 .button-donated { background-color: var(--success-color); color: white; cursor: not-allowed; opacity: 0.9; }
 .button-pending { background-color: var(--primary-color); color: white; cursor: not-allowed; opacity: 0.7; }
-.google-signin-button { background-color: #fff; color: var(--text-dark); border: 1px solid var(--border-color); width: 100%; padding: 0.75rem; }
+/* --- UPDATED: Alignment for Google Button --- */
+.google-signin-button { 
+    background-color: #fff; 
+    color: #1f2937; /* Always use dark text on white background */
+    border: 1px solid var(--border-color); 
+    width: 100%; 
+    padding: 0.75rem; 
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.75rem; /* Space between icon and text */
+}
 .google-signin-button:hover { background-color: var(--background-color); }
 
 /* --- NAVBAR --- */
